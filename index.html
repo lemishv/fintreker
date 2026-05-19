@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#0a0a0a">
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Фінанси">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230a0a0a"/><text x="50" y="68" font-family="Georgia,serif" font-size="58" font-weight="600" text-anchor="middle" fill="%23d4a574">₴</text></svg>'>
+<link rel="apple-touch-icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect width="180" height="180" rx="40" fill="%230a0a0a"/><text x="90" y="122" font-family="Georgia,serif" font-size="105" font-weight="600" text-anchor="middle" fill="%23d4a574">₴</text></svg>'>
 <title>Фінанси</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +24,7 @@
   input, select, textarea { font: inherit; color: inherit; background: none; border: none; outline: none; }
   ul, ol { list-style: none; }
 
-  :root {
+  :root, html[data-theme="dark"] {
     --bg:        #0a0a0a;
     --surface:   #161616;
     --surface-2: #1f1f1f;
@@ -37,6 +40,24 @@
     --transfer:  #7a8aa3;
     --danger:    #c45454;
     --danger-dim:#3a1c1c;
+  }
+
+  html[data-theme="light"] {
+    --bg:        #f5f1ea;
+    --surface:   #ebe5db;
+    --surface-2: #e0d9cc;
+    --border:    #d8d0c2;
+    --border-2:  #c0b6a4;
+    --text:      #2a2620;
+    --text-2:    #6a6258;
+    --text-3:    #98907f;
+    --accent:    #a8783e;
+    --accent-dim:#f0e6d4;
+    --income:    #5a7a5a;
+    --expense:   #a85a3a;
+    --transfer:  #5a6a85;
+    --danger:    #a04040;
+    --danger-dim:#f5d8d8;
   }
 
   body {
@@ -600,6 +621,57 @@
   }
   .stab-bar button.active { background: var(--bg); color: var(--text); }
 
+  .stab-bar.stab-bar-4 button { font-size: 10px; padding: 9px 0; }
+
+  .events-explainer {
+    margin-top: 22px;
+    padding: 14px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    line-height: 1.5;
+  }
+
+  .event-count {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-3);
+    padding: 3px 7px;
+    background: var(--surface);
+    border-radius: 4px;
+  }
+
+  .theme-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+  .theme-picker button {
+    padding: 14px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-2);
+    transition: all 0.15s;
+  }
+  .theme-picker button.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .theme-picker button .ico {
+    color: var(--text-2);
+    display: flex;
+  }
+  .theme-picker button.active .ico { color: var(--accent); }
+
   /* STATS */
   .stat-hint {
     padding: 10px 14px;
@@ -857,7 +929,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.6.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -893,8 +965,148 @@ const ICONS = {
   up:      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>',
   swap:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   edit:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-  archive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
+  archive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
+  systemTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+  lightTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>',
+  darkTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
 };
+
+function exportCsv() {
+  // Build three CSV files. Use ; separator for Google Sheets/Excel friendliness with EU locale.
+  const sep = ',';
+  const today = todayISO();
+
+  // Helper: escape value for CSV
+  const cell = (v) => {
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+
+  // Transactions
+  const txHeader = ['date', 'type', 'amount', 'currency', 'account', 'category', 'event', 'to_account', 'to_amount', 'to_currency', 'note'];
+  const txRows = state.data.transactions
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(t => {
+      const acc = findAccount(t.accountId);
+      const cat = findCategory(t.categoryId);
+      const toAcc = findAccount(t.toAccountId);
+      const ev = findEvent(t.eventId);
+      return [
+        t.date,
+        t.type,
+        t.amount,
+        t.currency,
+        acc ? acc.name : '',
+        cat ? cat.name : '',
+        ev ? ev.name : '',
+        toAcc ? toAcc.name : '',
+        t.toAmount != null ? t.toAmount : '',
+        t.toCurrency || '',
+        t.note || ''
+      ].map(cell).join(sep);
+    });
+  const txCsv = [txHeader.join(sep), ...txRows].join('\n');
+
+  // Accounts (with current balance)
+  const accHeader = ['name', 'currency', 'balance', 'archived', 'goal_amount', 'goal_description'];
+  const accRows = state.data.accounts.map(a => [
+    a.name,
+    a.currency,
+    getAccountBalance(a.id),
+    a.archived ? 'yes' : '',
+    a.goal ? a.goal.amount : '',
+    a.goal ? a.goal.description : ''
+  ].map(cell).join(sep));
+  const accCsv = [accHeader.join(sep), ...accRows].join('\n');
+
+  // Categories
+  const catHeader = ['name', 'type', 'archived'];
+  const catRows = state.data.categories.map(c => [
+    c.name,
+    c.type,
+    c.archived ? 'yes' : ''
+  ].map(cell).join(sep));
+  const catCsv = [catHeader.join(sep), ...catRows].join('\n');
+
+  // Download each (or single combined zip would require JSZip — we'd rather keep it dependency-free)
+  downloadFile(`finance-transactions-${today}.csv`, txCsv);
+  downloadFile(`finance-accounts-${today}.csv`, accCsv);
+  downloadFile(`finance-categories-${today}.csv`, catCsv);
+}
+
+function downloadFile(filename, content) {
+  // Prepend BOM so Excel/Google Sheets detect UTF-8 with Ukrainian characters
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function setupManifest() {
+  // Generate the PWA manifest at runtime via Blob.
+  // Inline data: URI manifests are fragile across browsers — Blob URL is reliable.
+  const iconSvg = encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
+    '<rect width="512" height="512" rx="115" fill="#0a0a0a"/>' +
+    '<text x="256" y="348" font-family="Georgia,serif" font-size="300" font-weight="600" text-anchor="middle" fill="#d4a574">₴</text>' +
+    '</svg>'
+  );
+  const iconUrl = 'data:image/svg+xml,' + iconSvg;
+  const manifest = {
+    name: 'Фінанси',
+    short_name: 'Фінанси',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#0a0a0a',
+    theme_color: '#0a0a0a',
+    orientation: 'portrait',
+    icons: [
+      { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+      { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
+      { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+}
+
+function setupServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('SW register failed:', err);
+      });
+    });
+  }
+}
+
+function applyTheme() {
+  const setting = state.data.theme || 'system';
+  let effective = setting;
+  if (setting === 'system') {
+    effective = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', effective);
+  // Update theme-color meta to match
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.setAttribute('content', effective === 'light' ? '#f5f1ea' : '#0a0a0a');
+  }
+}
 
 /* ============================================================
    STATE & STORAGE
@@ -905,7 +1117,7 @@ function defaultData() {
     version: 1,
     baseCurrency: 'EUR',
     viewCurrency: 'EUR',
-    theme: 'dark',
+    theme: 'system',
     accounts: [],
     categories: [],
     fxRates: { EUR: 1, UAH: 0.022, USD: 0.92, GBP: 1.17 },
@@ -920,7 +1132,7 @@ function migrate(d) {
   if (!d.version) d.version = 1;
   if (!d.baseCurrency) d.baseCurrency = 'EUR';
   if (!d.viewCurrency) d.viewCurrency = 'EUR';
-  if (!d.theme) d.theme = 'dark';
+  if (!d.theme) d.theme = 'system';
   if (!d.accounts) d.accounts = [];
   if (!d.categories) d.categories = [];
   if (!d.fxRates) d.fxRates = { EUR: 1, UAH: 0.022, USD: 0.92, GBP: 1.17 };
@@ -1233,7 +1445,49 @@ function categoryHasTransactions(id) {
   return state.data.transactions.some(t => t.categoryId === id);
 }
 
-function createTransaction({ date, type, amount, accountId, categoryId, note, toAccountId, toAmount }) {
+function createEvent({ name, color }) {
+  const ev = {
+    id: uid(),
+    name: name.trim(),
+    color,
+    archived: false,
+    createdAt: new Date().toISOString()
+  };
+  state.data.events.push(ev);
+  saveData();
+  return ev;
+}
+
+function updateEvent(id, { name, color }) {
+  const ev = state.data.events.find(e => e.id === id);
+  if (!ev) return;
+  ev.name = name.trim();
+  ev.color = color;
+  saveData();
+}
+
+function deleteEvent(id) {
+  state.data.events = state.data.events.filter(e => e.id !== id);
+  saveData();
+}
+
+function archiveEvent(id) {
+  const ev = state.data.events.find(e => e.id === id);
+  if (ev) { ev.archived = true; saveData(); }
+}
+
+function unarchiveEvent(id) {
+  const ev = state.data.events.find(e => e.id === id);
+  if (ev) { ev.archived = false; saveData(); }
+}
+
+function eventHasTransactions(id) {
+  return state.data.transactions.some(t => t.eventId === id);
+}
+
+function findEvent(id) { return state.data.events.find(e => e.id === id); }
+
+function createTransaction({ date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId }) {
   const now = new Date().toISOString();
   const acc = findAccount(accountId);
   const fromCur = acc ? acc.currency : 'EUR';
@@ -1257,7 +1511,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       toAccountId,
       toAmount: toAmt,
       toCurrency: toCur,
-      eventId: null,
+      eventId: eventId || null,
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
@@ -1274,7 +1528,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       toAccountId: null,
       toAmount: null,
       toCurrency: null,
-      eventId: null,
+      eventId: eventId || null,
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
@@ -1283,7 +1537,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
   saveData();
 }
 
-function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount }) {
+function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId }) {
   const tx = state.data.transactions.find(t => t.id === id);
   if (!tx) return;
   const now = new Date().toISOString();
@@ -1306,6 +1560,7 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
     tx.toAccountId = toAccountId;
     tx.toAmount = toAmt;
     tx.toCurrency = toCur;
+    tx.eventId = eventId || null;
     tx.note = (note || '').trim();
     tx.updatedAt = now;
   } else {
@@ -1318,6 +1573,7 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
     tx.toAccountId = null;
     tx.toAmount = null;
     tx.toCurrency = null;
+    tx.eventId = eventId || null;
     tx.note = (note || '').trim();
     tx.updatedAt = now;
   }
@@ -1762,16 +2018,73 @@ function renderSettings() {
     <div class="view-title serif">Налаштування</div>
     <div class="view-sub">Категорії, курси, інше</div>
 
-    <div class="stab-bar">
+    <div class="stab-bar stab-bar-4">
       <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
       <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
-      <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про додаток</button>
+      <button class="${state.settingsTab === 'events' ? 'active' : ''}" data-action="stab" data-key="events">Події</button>
+      <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про</button>
     </div>
 
     ${state.settingsTab === 'categories' ? renderCategoriesSettings()
      : state.settingsTab === 'rates' ? renderRatesSettings()
+     : state.settingsTab === 'events' ? renderEventsSettings()
      : renderAboutSettings()}
   `;
+}
+
+function renderEventsSettings() {
+  const events = state.data.events;
+  const active = events.filter(e => !e.archived);
+  const archived = events.filter(e => e.archived);
+
+  let html = `
+    <button class="add-btn" data-action="open-new-event">+ Додати подію</button>
+  `;
+
+  if (events.length === 0) {
+    html += `
+      <div class="events-explainer">
+        <p style="margin-bottom: 8px;"><strong style="color: var(--text)">Що це</strong></p>
+        <p>Подія — це окремий «проект» для групи витрат: подорож, ремонт, святкування. Транзакції можна (опційно) прив'язувати до події, щоб потім бачити, скільки витрачено на неї всього.</p>
+        <p style="margin-top: 8px;">Згодом на подію можна буде поставити бюджет.</p>
+      </div>
+    `;
+    return html;
+  }
+
+  if (active.length > 0) {
+    html += `<section style="margin-top: 22px;"><div class="section-head">Активні · ${active.length}</div>`;
+    for (const ev of active) {
+      const txCount = state.data.transactions.filter(t => t.eventId === ev.id).length;
+      html += `
+        <div class="cat-row">
+          <span class="swatch" style="background:${ev.color}"></span>
+          <span class="name">${escapeHtml(ev.name)}</span>
+          ${txCount > 0 ? `<span class="event-count">${txCount} тр.</span>` : ''}
+          <button class="del" data-action="edit-event" data-id="${ev.id}">${ICONS.edit}</button>
+          <button class="del" data-action="del-event" data-id="${ev.id}">${ICONS.trash}</button>
+        </div>
+      `;
+    }
+    html += `</section>`;
+  }
+
+  if (archived.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">Архівні · ${archived.length}</div>
+        ${archived.map(ev => `
+          <div class="cat-row archived-row">
+            <span class="swatch" style="background:${ev.color}; opacity: 0.5"></span>
+            <span class="name" style="opacity: 0.6">${escapeHtml(ev.name)}</span>
+            <button class="del" data-action="unarchive-event" data-id="${ev.id}" title="Розархівувати">${ICONS.archive}</button>
+          </div>
+        `).join('')}
+      </section>
+    `;
+  }
+
+  return html;
 }
 
 function renderRatesSettings() {
@@ -1870,12 +2183,37 @@ function renderArchivedCatRow(c) {
 }
 
 function renderAboutSettings() {
+  const theme = state.data.theme || 'system';
   return `
+    <section style="margin-top: 6px;">
+      <div class="section-head">Тема</div>
+      <div class="theme-picker">
+        <button class="${theme === 'system' ? 'active' : ''}" data-action="set-theme" data-key="system">
+          <span class="ico">${ICONS.systemTheme}</span>
+          <span>Системна</span>
+        </button>
+        <button class="${theme === 'light' ? 'active' : ''}" data-action="set-theme" data-key="light">
+          <span class="ico">${ICONS.lightTheme}</span>
+          <span>Світла</span>
+        </button>
+        <button class="${theme === 'dark' ? 'active' : ''}" data-action="set-theme" data-key="dark">
+          <span class="ico">${ICONS.darkTheme}</span>
+          <span>Темна</span>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">Дані</div>
+      <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
+      <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Завантажить три файли — транзакції, рахунки, категорії — для бекапу або імпорту в Google Sheets.</div>
+    </section>
+
     <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
       <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
       <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
-      <p style="margin-bottom: 12px;">Етап 3 завершено: редагування транзакцій, рахунків (без зміни валюти), категорій. Архівація замість видалення для тих, що мають історію.</p>
-      <p style="margin-bottom: 18px;">Наступне: бюджети та події (Етап 4).</p>
+      <p style="margin-bottom: 12px;">v1.6.0: PWA-маніфест через JS Blob (надійна іконка на головному екрані), Service Worker для офлайну. Працює без зв'язку після першого запуску.</p>
+      <p style="margin-bottom: 18px;">Деплой: два файли — index.html і sw.js — обидва в корінь репо.</p>
 
       <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
         <strong style="color: var(--text); display: block; margin-bottom: 6px;">Якщо щось працює дивно</strong>
@@ -1926,15 +2264,103 @@ function renderModal() {
     case 'newTx':         return renderNewTxModal();
     case 'newAcc':        return renderNewAccModal();
     case 'newCat':        return renderNewCatModal();
+    case 'newEvent':      return renderNewEventModal();
     case 'txDetail':      return renderTxDetail();
     case 'confirmDelTx':  return renderConfirmDelTx();
     case 'confirmDelAcc': return renderConfirmDelAcc();
     case 'confirmDelCat': return renderConfirmDelCat();
+    case 'confirmDelEvent': return renderConfirmDelEvent();
     case 'confirmArchiveAcc': return renderConfirmArchiveAcc();
     case 'confirmArchiveCat': return renderConfirmArchiveCat();
+    case 'confirmArchiveEvent': return renderConfirmArchiveEvent();
     case 'infoBlocked':   return renderBlocked();
   }
   return '';
+}
+
+function renderNewEventModal() {
+  const f = state.modalForm;
+  const isEdit = !!f.editingId;
+  const valid = f.name && f.name.trim().length > 0
+    && !state.data.events.some(e => e.name === f.name.trim() && e.id !== f.editingId);
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">${isEdit ? 'Редагувати подію' : 'Нова подія'}</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Назва</span></div>
+            <input class="input" type="text" placeholder="напр. Італія 2026, Ремонт кухні" value="${escapeAttr(f.name || '')}" data-form="name">
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Колір</span></div>
+            <div class="colors">
+              ${COLOR_PALETTE.map(c => `
+                <button class="${f.color === c ? 'active' : ''}" style="background:${c}" data-action="pick-color" data-key="${c}"></button>
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="save-event" ${valid ? '' : 'disabled'}>${isEdit ? 'Оновити' : 'Зберегти'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmDelEvent() {
+  const ev = state.modalCtx;
+  if (!ev) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Видалити подію?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${ev.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(ev.name)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-3)">Подія не використовується в транзакціях — можна видалити безпечно.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn danger" data-action="do-del-event">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmArchiveEvent() {
+  const ev = state.modalCtx;
+  if (!ev) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Архівувати подію?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${ev.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(ev.name)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-2); line-height: 1.5">Подія використовується в транзакціях. Архівація прибере її зі списку вибору при створенні нових транзакцій, але існуючі прив'язки збережуться.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="archive-event-confirmed" data-id="${ev.id}">Архівувати</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderConfirmArchiveAcc() {
@@ -2020,6 +2446,15 @@ function renderTxDetail() {
                 <span class="lbl">Дата</span>
                 <span class="val">${fmtDateLabel(t.date)}</span>
               </div>
+              ${t.eventId ? (() => {
+                const ev = findEvent(t.eventId);
+                return ev ? `
+                  <div class="tx-preview-row">
+                    <span class="lbl">Подія</span>
+                    <span class="val"><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${ev.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(ev.name)}</span>
+                  </div>
+                ` : '';
+              })() : ''}
               ${t.note ? `
                 <div class="tx-preview-row">
                   <span class="lbl">Примітка</span>
@@ -2069,6 +2504,15 @@ function renderTxDetail() {
               <span class="lbl">Дата</span>
               <span class="val">${fmtDateLabel(t.date)}</span>
             </div>
+            ${t.eventId ? (() => {
+              const ev = findEvent(t.eventId);
+              return ev ? `
+                <div class="tx-preview-row">
+                  <span class="lbl">Подія</span>
+                  <span class="val"><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${ev.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(ev.name)}</span>
+                </div>
+              ` : '';
+            })() : ''}
             ${t.note ? `
               <div class="tx-preview-row">
                 <span class="lbl">Примітка</span>
@@ -2169,6 +2613,7 @@ function renderTxFormRegular(f, accs) {
   const availableCats = state.data.categories.filter(c => c.type === f.type && !c.archived);
   const acc = accs.find(a => a.id === f.accountId);
   const cur = acc ? acc.currency : 'EUR';
+  const events = state.data.events.filter(e => !e.archived);
 
   return `
     <div class="field">
@@ -2194,6 +2639,16 @@ function renderTxFormRegular(f, accs) {
         <option value="__new__">+ Нова категорія…</option>
       </select>
     </div>
+
+    ${events.length > 0 ? `
+      <div class="field">
+        <div class="field-label"><span class="lbl">Подія</span><span class="opt">опційно</span></div>
+        <select class="select" data-form="eventId">
+          <option value="">— без події —</option>
+          ${events.map(ev => `<option value="${ev.id}" ${f.eventId === ev.id ? 'selected' : ''}>${escapeHtml(ev.name)}</option>`).join('')}
+        </select>
+      </div>
+    ` : ''}
   `;
 }
 
@@ -2204,6 +2659,7 @@ function renderTxFormTransfer(f, accs) {
   const crossCur = fromAcc && toAcc && !sameCur;
   const fromCur = fromAcc ? fromAcc.currency : '';
   const toCur = toAcc ? toAcc.currency : '';
+  const events = state.data.events.filter(e => !e.archived);
 
   // Available "to" accounts: all except the chosen "from"
   const toAccs = accs.filter(a => a.id !== f.accountId);
@@ -2246,6 +2702,16 @@ function renderTxFormTransfer(f, accs) {
             ? `За курсом ≈ ${fmtMoney(convertCurrency(parseFloat(f.amount), fromCur, toCur), false, toCur)}. Скорегуй якщо банк дав інше.`
             : 'Розрахується автоматично за курсом, можеш скорегувати.'}
         </div>
+      </div>
+    ` : ''}
+
+    ${events.length > 0 ? `
+      <div class="field">
+        <div class="field-label"><span class="lbl">Подія</span><span class="opt">опційно</span></div>
+        <select class="select" data-form="eventId">
+          <option value="">— без події —</option>
+          ${events.map(ev => `<option value="${ev.id}" ${f.eventId === ev.id ? 'selected' : ''}>${escapeHtml(ev.name)}</option>`).join('')}
+        </select>
       </div>
     ` : ''}
   `;
@@ -2710,6 +3176,7 @@ function handleAction(action, key, id, trigger) {
         toAccountId: tx.toAccountId || '',
         toAmount: tx.toAmount != null ? String(tx.toAmount) : '',
         toAmountEdited: true,  // pre-existing value, don't auto-overwrite
+        eventId: tx.eventId || '',
         note: tx.note || ''
       };
       vibrate(10);
@@ -2764,7 +3231,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', note: '' };
       vibrate(10);
       render();
       break;
@@ -2777,7 +3244,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', note: '' };
       vibrate(10);
       render();
       break;
@@ -2845,7 +3312,8 @@ function handleAction(action, key, id, trigger) {
         categoryId: f.type === 'Transfer' ? null : f.categoryId,
         note: f.note || '',
         toAccountId: f.toAccountId,
-        toAmount: f.toAmount
+        toAmount: f.toAmount,
+        eventId: f.eventId || null
       };
       if (f.editingId) {
         updateTransaction(f.editingId, payload);
@@ -2982,6 +3450,89 @@ function handleAction(action, key, id, trigger) {
       break;
     }
 
+    case 'export-csv':
+      exportCsv();
+      vibrate([10, 30, 10]);
+      break;
+
+    case 'set-theme':
+      state.data.theme = key;
+      saveData();
+      applyTheme();
+      vibrate(8);
+      render();
+      break;
+
+    case 'open-new-event':
+      state.modal = 'newEvent';
+      state.modalForm = { name: '', color: nextAutoColor() };
+      vibrate(10);
+      render();
+      break;
+
+    case 'edit-event': {
+      const ev = state.data.events.find(e => e.id === id);
+      if (!ev) return;
+      state.modal = 'newEvent';
+      state.modalForm = { editingId: ev.id, name: ev.name, color: ev.color };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'save-event': {
+      const f = state.modalForm;
+      if (f.editingId) {
+        updateEvent(f.editingId, { name: f.name, color: f.color });
+      } else {
+        createEvent({ name: f.name, color: f.color });
+      }
+      state.modal = null;
+      state.modalForm = {};
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'del-event': {
+      const ev = state.data.events.find(e => e.id === id);
+      if (!ev) return;
+      if (eventHasTransactions(id)) {
+        state.modal = 'confirmArchiveEvent';
+        state.modalCtx = ev;
+        vibrate(10);
+        render();
+        return;
+      }
+      state.modal = 'confirmDelEvent';
+      state.modalCtx = ev;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'do-del-event':
+      deleteEvent(state.modalCtx.id);
+      state.modal = null;
+      state.modalCtx = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+
+    case 'archive-event-confirmed':
+      archiveEvent(id);
+      state.modal = null;
+      state.modalCtx = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+
+    case 'unarchive-event':
+      unarchiveEvent(id);
+      vibrate([10, 30, 10]);
+      render();
+      break;
+
     case 'del-tx': {
       const tx = state.data.transactions.find(t => t.id === id);
       if (!tx) return;
@@ -3061,8 +3612,18 @@ function handleAction(action, key, id, trigger) {
    INIT
    ============================================================ */
 
+setupManifest();
+setupServiceWorker();
+applyTheme();
 render();
 setupEvents();
+
+// React to system theme changes if user is on 'system' mode
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  if ((state.data.theme || 'system') === 'system') {
+    applyTheme();
+  }
+});
 
 </script>
 </body>
