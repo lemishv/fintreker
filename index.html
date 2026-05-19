@@ -1,0 +1,3069 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Фінанси</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     RESET & TOKENS
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overscroll-behavior-y: contain; }
+  button { background: none; border: none; cursor: pointer; color: inherit; font: inherit; }
+  input, select, textarea { font: inherit; color: inherit; background: none; border: none; outline: none; }
+  ul, ol { list-style: none; }
+
+  :root {
+    --bg:        #0a0a0a;
+    --surface:   #161616;
+    --surface-2: #1f1f1f;
+    --border:    #2a2a2a;
+    --border-2:  #3a3a3a;
+    --text:      #ededed;
+    --text-2:    #a8a8a8;
+    --text-3:    #6a6a6a;
+    --accent:    #d4a574;
+    --accent-dim:#3a2e1c;
+    --income:    #7d9b7d;
+    --expense:   #c87858;
+    --transfer:  #7a8aa3;
+    --danger:    #c45454;
+    --danger-dim:#3a1c1c;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .serif { font-family: 'Fraunces', Georgia, serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); }
+  .muted { color: var(--text-2); }
+
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  #app {
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-bottom: 64px; /* room for nav */
+  }
+
+  /* HEADER */
+  header.app-head {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  header.app-head .top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  header.app-head h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+  header.app-head .month {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-3);
+  }
+  header.app-head .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+  }
+  header.app-head .cell .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 4px; }
+  header.app-head .cell .val { font-family: 'Fraunces', serif; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  header.app-head .head-hint {
+    margin-top: 10px;
+    font-size: 10px;
+    color: var(--text-3);
+    text-align: right;
+    font-style: italic;
+  }
+
+  /* VIEW MAIN */
+  main {
+    flex: 1;
+    padding: 18px 20px 100px;
+  }
+  .view-title {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .view-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 18px; }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-3);
+  }
+  .empty .title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-style: italic;
+    margin-bottom: 6px;
+    color: var(--text-2);
+  }
+  .empty .hint { font-size: 13px; }
+
+  /* FAB */
+  .fab {
+    position: fixed;
+    right: 20px;
+    bottom: 84px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    z-index: 5;
+    transition: transform 0.12s;
+  }
+  .fab:active { transform: scale(0.94); }
+
+  /* BOTTOM NAV */
+  nav.tabs {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 4;
+  }
+  nav.tabs .container {
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    width: 100%;
+  }
+  nav.tabs button {
+    flex: 1;
+    padding: 10px 0 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--text-3);
+    transition: color 0.15s;
+  }
+  nav.tabs button.active { color: var(--accent); }
+  nav.tabs .tab-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; }
+
+  /* SECTION HEADERS */
+  .section-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-3);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  section { margin-bottom: 28px; }
+
+  /* TRANSACTION ROW */
+  .tx-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .tx-row:active { background: var(--surface); }
+  .tx-row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .tx-row .body { flex: 1; min-width: 0; }
+  .tx-row .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .tx-row .name { font-size: 14.5px; font-weight: 500; }
+  .tx-row .amount { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tx-row .amount.income { color: var(--income); }
+  .tx-row .amount.expense { color: var(--expense); }
+  .tx-row .amount.transfer { color: var(--transfer); font-size: 14px; }
+  .tx-row .meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* ACCOUNT CARD */
+  .acc-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: background 0.12s;
+  }
+  .acc-card:active { background: var(--surface-2); }
+  .acc-card .swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+  .acc-card .info { flex: 1; min-width: 0; }
+  .acc-card .name { font-size: 14.5px; font-weight: 500; }
+  .acc-card .cur { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; }
+  .acc-card .balance { font-family: 'Fraunces', serif; font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
+
+  .totals {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .totals .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); }
+  .totals .val { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); }
+
+  /* TOTALS MULTI (per-currency) */
+  .totals-multi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 16px;
+    margin-bottom: 18px;
+  }
+  .totals-multi .totals-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .totals-multi .totals-row:last-child { border-bottom: none; }
+  .totals-multi .totals-row .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-3);
+  }
+  .totals-multi .totals-row .val {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+
+  /* VIEW CURRENCY PICKER (top of accounts tab) */
+  .view-cur-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 14px;
+  }
+  .view-cur-picker button {
+    padding: 8px 0;
+    border-radius: 6px;
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-3);
+    transition: all 0.15s;
+  }
+  .view-cur-picker button.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* TOTALS HERO (single big balance) */
+  .totals-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .totals-hero .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .totals-hero .val {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* TOTALS BY CURRENCY (small panel under hero) */
+  .totals-by-cur {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .totals-by-cur-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .totals-by-cur-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+  }
+  .totals-by-cur-row .cur-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-3);
+  }
+  .totals-by-cur-row .cur-val {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  /* GOAL CARD */
+  .goal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: background 0.12s;
+  }
+  .goal-card:active { background: var(--surface-2); }
+  .goal-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .goal-top .swatch { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+  .goal-name { flex: 1; font-size: 14.5px; font-weight: 500; }
+  .goal-pct {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .goal-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .goal-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease-out;
+  }
+  .goal-nums {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+  }
+  .goal-nums .muted { color: var(--text-3); font-weight: 400; }
+  .goal-desc {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* RATES SETTINGS */
+  .rates-hint {
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  .rate-row {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rate-row:last-of-type { border-bottom: none; }
+  .rate-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rate-eur {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-2);
+    flex-shrink: 0;
+    min-width: 50px;
+  }
+  .rate-eq { color: var(--text-3); font-size: 14px; }
+  .rate-input {
+    flex: 1;
+    padding: 10px 12px;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .rate-cur {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-3);
+    letter-spacing: 0.12em;
+    flex-shrink: 0;
+    min-width: 30px;
+  }
+  .rates-tip {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+
+  /* ACCOUNT DETAIL */
+  .detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .detail-head .back {
+    color: var(--accent);
+    font-size: 14px;
+    padding: 4px 0;
+  }
+  .detail-head .del-acc-btn {
+    color: var(--text-3);
+    padding: 6px;
+    transition: color 0.15s;
+  }
+  .detail-head .del-acc-btn:active { color: var(--danger); }
+  .detail-head-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .icon-btn {
+    color: var(--text-3);
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .icon-btn:active { color: var(--accent); background: var(--surface); }
+  .icon-btn.danger-hover:active { color: var(--danger); }
+  .detail-hero {
+    text-align: center;
+    padding: 14px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .detail-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .detail-name-row .swatch { width: 12px; height: 12px; border-radius: 4px; }
+  .detail-name {
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .detail-balance {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 2px;
+  }
+  .detail-cur {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-3);
+  }
+
+  /* TX PREVIEW (inside modal) */
+  .tx-preview-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-align: center;
+    padding: 8px 0 20px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tx-preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .tx-preview-row:last-child { border-bottom: none; }
+  .tx-preview-row .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-3);
+    flex-shrink: 0;
+  }
+  .tx-preview-row .val {
+    font-size: 14px;
+    text-align: right;
+    word-break: break-word;
+  }
+
+  /* CATEGORY ROW */
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-row .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .cat-row .name { flex: 1; font-size: 14px; }
+  .cat-row .type { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); padding: 3px 7px; border: 1px solid var(--border-2); border-radius: 4px; }
+  .cat-row .type.income { color: var(--income); border-color: var(--income); opacity: 0.7; }
+  .cat-row .type.expense { color: var(--expense); border-color: var(--expense); opacity: 0.7; }
+  .cat-row .del { color: var(--text-3); padding: 8px; transition: color 0.15s; border-radius: 4px; }
+  .cat-row .del:active { color: var(--accent); background: var(--surface); }
+
+  /* Archived row styling (used in cat-row and acc-card) */
+  .archived-row {
+    opacity: 0.85;
+  }
+  .type-pill {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-3);
+    padding: 3px 7px;
+    border: 1px solid var(--border-2);
+    border-radius: 4px;
+  }
+
+  /* SETTINGS TABS */
+  .stab-bar {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    padding: 3px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .stab-bar button {
+    flex: 1;
+    padding: 9px 0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .stab-bar button.active { background: var(--bg); color: var(--text); }
+
+  /* STATS */
+  .stat-hint {
+    padding: 10px 14px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 18px;
+    opacity: 0.85;
+  }
+  .stat-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-line .lbl { font-size: 13px; }
+  .stat-line .val { font-family: 'Fraunces', serif; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .month-bar-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .month-bar-row .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .month-bar-row .mlbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); }
+  .month-bar-row .net { font-family: 'Fraunces', serif; font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .month-bar { display: flex; gap: 3px; height: 6px; margin-bottom: 4px; }
+  .month-bar > div { flex: 1; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .month-bar > div > span { display: block; height: 100%; }
+  .month-bar .inc > span { background: var(--income); }
+  .month-bar .exp > span { background: var(--expense); }
+  .month-bar-row .nums { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+  /* ============================================================
+     MODAL
+     ============================================================ */
+  .scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 10;
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: scrim-in 0.18s ease-out;
+  }
+  @keyframes scrim-in { from { background: rgba(0,0,0,0); } }
+
+  .sheet {
+    width: 100%;
+    max-width: 640px;
+    max-height: 92vh;
+    background: var(--bg);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-top: 1px solid var(--border);
+    overflow-y: auto;
+    animation: sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes sheet-in { from { transform: translateY(100%); } }
+
+  .sheet-head {
+    position: sticky; top: 0;
+    background: var(--bg);
+    padding: 14px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+    z-index: 1;
+  }
+  .sheet-head .title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; }
+  .sheet-head .close { color: var(--text-3); padding: 4px; }
+  .sheet-body { padding: 18px 20px 24px; }
+  .sheet-foot {
+    position: sticky; bottom: 0;
+    background: var(--bg);
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px;
+  }
+
+  /* FORM */
+  .field { margin-bottom: 18px; }
+  .field-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .field-label .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); }
+  .field-label .opt { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); opacity: 0.6; }
+
+  .input, .select {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .input:focus, .select:focus { border-color: var(--accent-dim); }
+  .input.amount {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236a6a6a' stroke-width='1.4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  .input[type="date"] { font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+
+  /* TYPE TOGGLE */
+  .toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .toggle.toggle-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .toggle button {
+    padding: 14px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-2);
+    transition: all 0.15s;
+  }
+  .toggle button.active.income { background: var(--income); color: var(--bg); border-color: var(--income); }
+  .toggle button.active.expense { background: var(--expense); color: var(--bg); border-color: var(--expense); }
+  .toggle button.active.transfer { background: var(--transfer); color: var(--bg); border-color: var(--transfer); }
+  .toggle button .ico { font-size: 18px; line-height: 1; }
+
+  .cross-cur-hint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-3);
+    font-style: italic;
+    line-height: 1.4;
+  }
+
+  /* COLOR PICKER */
+  .colors {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+  .colors button {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    transition: transform 0.12s, border-color 0.15s;
+  }
+  .colors button.active {
+    border-color: var(--text);
+    transform: scale(1.08);
+  }
+
+  /* CURRENCY PICKER */
+  .cur-pick {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .cur-pick button {
+    padding: 10px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    transition: all 0.15s;
+  }
+  .cur-pick button .sym { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500; color: var(--text-2); }
+  .cur-pick button .code { font-size: 9px; letter-spacing: 0.12em; color: var(--text-3); }
+  .cur-pick button.active { background: var(--accent-dim); border-color: var(--accent); }
+  .cur-pick button.active .sym { color: var(--accent); }
+  .cur-pick button.active .code { color: var(--accent); }
+
+  /* BUTTONS */
+  .btn {
+    padding: 13px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.35; pointer-events: none; }
+  .btn.primary { background: var(--accent); color: var(--bg); flex: 1; }
+  .btn.accent {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    flex: 1;
+  }
+  .btn.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); flex: 1; }
+  .btn.danger { background: var(--danger); color: var(--text); flex: 1; }
+
+  .sheet-foot.foot-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .sheet-foot.foot-3 .btn { padding: 12px 8px; font-size: 13px; }
+
+  .add-btn {
+    width: 100%;
+    padding: 11px 16px;
+    background: transparent;
+    border: 1px dashed var(--border-2);
+    border-radius: 8px;
+    color: var(--text-2);
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 10px;
+    transition: all 0.15s;
+  }
+  .add-btn:active { border-color: var(--accent); color: var(--accent); }
+
+  /* DATE GROUP HEADER (in transactions list) */
+  .date-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-3);
+    margin-top: 18px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .date-head:first-child { margin-top: 0; }
+
+  /* INFO BANNER (e.g. error in delete) */
+  .banner {
+    padding: 12px 14px;
+    background: var(--danger-dim);
+    border: 1px solid var(--danger);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
+
+const APP_VERSION = '1.3.0';
+const STORAGE_KEY = 'finance-tracker-v1';
+
+const COLOR_PALETTE = [
+  '#d4a574', // amber
+  '#c87858', // terracotta
+  '#a3a06b', // olive
+  '#7d9b7d', // sage
+  '#5b8a8e', // teal
+  '#7a8aa3', // slate
+  '#b08585', // dusty rose
+  '#9586a8', // lilac
+  '#c8a456', // gold
+  '#a8783e', // bronze
+  '#8a9a5b', // moss
+  '#a87878'  // mauve
+];
+
+const ALL_CURRENCIES = ['EUR', 'UAH', 'USD', 'GBP'];
+const CURRENCY_SYMBOLS = { EUR: '€', UAH: '₴', USD: '$', GBP: '£' };
+
+const MONTHS_FULL = ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+const MONTHS_SHORT = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру'];
+
+const ICONS = {
+  list:    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+  wallet:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>',
+  chart:   '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  gear:    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  plus:    '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  close:   '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  trash:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+  down:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg>',
+  up:      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>',
+  swap:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  edit:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  archive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
+};
+
+/* ============================================================
+   STATE & STORAGE
+   ============================================================ */
+
+function defaultData() {
+  return {
+    version: 1,
+    baseCurrency: 'EUR',
+    viewCurrency: 'EUR',
+    theme: 'dark',
+    accounts: [],
+    categories: [],
+    fxRates: { EUR: 1, UAH: 0.022, USD: 0.92, GBP: 1.17 },
+    transactions: [],
+    events: [],
+    budgets: []
+  };
+}
+
+function migrate(d) {
+  // Ensure all fields exist (forward-safe loading)
+  if (!d.version) d.version = 1;
+  if (!d.baseCurrency) d.baseCurrency = 'EUR';
+  if (!d.viewCurrency) d.viewCurrency = 'EUR';
+  if (!d.theme) d.theme = 'dark';
+  if (!d.accounts) d.accounts = [];
+  if (!d.categories) d.categories = [];
+  if (!d.fxRates) d.fxRates = { EUR: 1, UAH: 0.022, USD: 0.92, GBP: 1.17 };
+  if (!d.transactions) d.transactions = [];
+  if (!d.events) d.events = [];
+  if (!d.budgets) d.budgets = [];
+  // Backfill on legacy accounts/transactions
+  for (const a of d.accounts) {
+    if (!a.currency) a.currency = 'EUR';
+    if (a.goal === undefined) a.goal = null;
+  }
+  for (const t of d.transactions) if (!t.currency) t.currency = 'EUR';
+  // Always ensure EUR rate = 1
+  d.fxRates.EUR = 1;
+  return d;
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultData();
+    return migrate(JSON.parse(raw));
+  } catch (e) {
+    console.warn('Load failed, using defaults', e);
+    return defaultData();
+  }
+}
+
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  } catch (e) {
+    console.error('Save failed', e);
+  }
+}
+
+const state = {
+  data: loadData(),
+  view: 'transactions',    // transactions | accounts | stats | settings
+  subView: null,           // null | { type: 'accountDetail', id: '...' }
+  settingsTab: 'categories',
+  modal: null,             // null | newTx | newAcc | newCat | txDetail | confirmDelTx | confirmDelAcc | confirmDelCat | infoBlocked
+  modalCtx: null,          // arbitrary data for modal
+  modalForm: {},           // current values in the open modal
+  pendingTx: null          // when creating category from tx-form, holds the tx form to return to
+};
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function monthKey(dateStr) {
+  return dateStr.slice(0, 7);
+}
+
+function fmtMoney(n, signed = false, currency = 'EUR') {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n).toLocaleString('en-IE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sign = signed
+    ? (n < 0 ? '−' : n > 0 ? '+' : '')
+    : (n < 0 ? '−' : '');
+  const sym = CURRENCY_SYMBOLS[currency] || (currency + ' ');
+  return sign + sym + abs;
+}
+
+function fmtDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff === 0) return 'Сьогодні';
+  if (diff === -1) return 'Вчора';
+  return d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()] + (d.getFullYear() !== today.getFullYear() ? ' ' + d.getFullYear() : '');
+}
+
+function fmtMonthLabel(monthStr) {
+  const [y, m] = monthStr.split('-');
+  return MONTHS_FULL[parseInt(m, 10) - 1] + ' ' + y;
+}
+
+function vibrate(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+function nextAutoColor() {
+  const used = state.data.accounts.length + state.data.categories.length;
+  return COLOR_PALETTE[used % COLOR_PALETTE.length];
+}
+
+function getAccountBalance(accountId) {
+  let bal = 0;
+  for (const t of state.data.transactions) {
+    // Income/Expense/Opening affect the account they're on
+    if (t.accountId === accountId) {
+      if (t.type === 'Income' || t.type === 'Opening') bal += t.amount;
+      else if (t.type === 'Expense') bal -= t.amount;
+      else if (t.type === 'Transfer') bal -= t.amount;
+    }
+    // Transfers also affect the destination account
+    if (t.type === 'Transfer' && t.toAccountId === accountId) {
+      bal += (t.toAmount != null ? t.toAmount : t.amount);
+    }
+  }
+  return bal;
+}
+
+/**
+ * Convert amount from one currency to another via stored EUR-anchored rates.
+ * rates[X] = how many EUR 1 unit of X equals.
+ */
+function convertCurrency(amount, fromCur, toCur) {
+  if (amount == null || isNaN(amount)) return 0;
+  if (fromCur === toCur) return amount;
+  const rates = state.data.fxRates || {};
+  const fromRate = rates[fromCur];
+  const toRate = rates[toCur];
+  if (!fromRate || !toRate) return amount;  // graceful fallback
+  const inEur = amount * fromRate;
+  return inEur / toRate;
+}
+
+function findAccount(id) { return state.data.accounts.find(a => a.id === id); }
+function findCategory(id) { return state.data.categories.find(c => c.id === id); }
+
+/**
+ * Build display info for a transaction row.
+ * Returns { label, dotColor, amountHtml, metaHtml }
+ */
+function describeTransaction(t, ctx = {}) {
+  // ctx.hideAccountInMeta — when shown inside an account-detail view, don't repeat the account name
+  const acc = findAccount(t.accountId);
+  const cat = findCategory(t.categoryId);
+
+  if (t.type === 'Transfer') {
+    const toAcc = findAccount(t.toAccountId);
+    const fromCur = t.currency || (acc ? acc.currency : 'EUR');
+    const toCur = t.toCurrency || (toAcc ? toAcc.currency : fromCur);
+    const sameCur = fromCur === toCur;
+    let amountHtml;
+    if (sameCur) {
+      amountHtml = `<span class="amount transfer num">${fmtMoney(t.amount, false, fromCur)}</span>`;
+    } else {
+      // Show both sides compactly
+      amountHtml = `<span class="amount transfer num">${fmtMoney(t.amount, false, fromCur)} → ${fmtMoney(t.toAmount, false, toCur)}</span>`;
+    }
+    const fromName = acc ? acc.name : '—';
+    const toName = toAcc ? toAcc.name : '—';
+    return {
+      label: 'Переказ',
+      dotColor: 'var(--transfer)',
+      amountHtml,
+      metaHtml: `${escapeHtml(fromName)} → ${escapeHtml(toName)}${t.note ? ' · ' + escapeHtml(t.note) : ''}`
+    };
+  }
+
+  const isInc = t.type === 'Income';
+  const isOpen = t.type === 'Opening';
+  const label = isOpen ? 'Початковий залишок' : (cat ? cat.name : '—');
+  const dotColor = cat ? cat.color : (acc ? acc.color : 'var(--text-3)');
+  const amountClass = (isInc || isOpen) ? 'income' : 'expense';
+  const sign = (isInc || isOpen) ? '+' : '−';
+  const amountHtml = `<span class="amount ${amountClass} num">${sign}${fmtMoney(Math.abs(t.amount), false, t.currency).replace('−','').replace('+','')}</span>`;
+  const accName = acc ? escapeHtml(acc.name) : '—';
+  const noteHtml = t.note ? ' · ' + escapeHtml(t.note) : '';
+  const metaHtml = ctx.hideAccountInMeta
+    ? (t.note ? escapeHtml(t.note) : '')
+    : (accName + noteHtml);
+  return { label, dotColor, amountHtml, metaHtml };
+}
+
+/* ============================================================
+   DATA OPERATIONS
+   ============================================================ */
+
+function createAccount({ name, currency, color, openingBalance, goalAmount, goalDescription }) {
+  const now = new Date().toISOString();
+  let goal = null;
+  const ga = parseFloat(goalAmount);
+  if (!isNaN(ga) && ga > 0) {
+    goal = {
+      amount: ga,
+      description: (goalDescription || '').trim(),
+      deadline: null
+    };
+  }
+  const acc = {
+    id: uid(),
+    name: name.trim(),
+    currency: currency || 'EUR',
+    color,
+    archived: false,
+    goal,
+    createdAt: now
+  };
+  state.data.accounts.push(acc);
+
+  // Add opening balance as a transaction if provided
+  const ob = parseFloat(openingBalance);
+  if (!isNaN(ob) && ob !== 0) {
+    state.data.transactions.push({
+      id: uid(),
+      date: todayISO(),
+      type: 'Opening',
+      amount: ob,
+      currency: acc.currency,
+      accountId: acc.id,
+      categoryId: null,
+      toAccountId: null,
+      toAmount: null,
+      toCurrency: null,
+      eventId: null,
+      note: '',
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+  saveData();
+}
+
+function deleteAccount(id) {
+  state.data.accounts = state.data.accounts.filter(a => a.id !== id);
+  saveData();
+}
+
+function updateAccount(id, { name, color, goalAmount, goalDescription }) {
+  const acc = state.data.accounts.find(a => a.id === id);
+  if (!acc) return;
+  acc.name = name.trim();
+  acc.color = color;
+  const ga = parseFloat(goalAmount);
+  if (!isNaN(ga) && ga > 0) {
+    acc.goal = {
+      amount: ga,
+      description: (goalDescription || '').trim(),
+      deadline: acc.goal ? acc.goal.deadline : null
+    };
+  } else {
+    acc.goal = null;
+  }
+  saveData();
+}
+
+function archiveAccount(id) {
+  const acc = state.data.accounts.find(a => a.id === id);
+  if (acc) { acc.archived = true; saveData(); }
+}
+
+function unarchiveAccount(id) {
+  const acc = state.data.accounts.find(a => a.id === id);
+  if (acc) { acc.archived = false; saveData(); }
+}
+
+function accountHasTransactions(id) {
+  return state.data.transactions.some(t =>
+    t.accountId === id ||
+    (t.type === 'Transfer' && t.toAccountId === id)
+  );
+}
+
+function createCategory({ name, type, color }) {
+  const cat = {
+    id: uid(),
+    name: name.trim(),
+    type,
+    color,
+    archived: false,
+    createdAt: new Date().toISOString()
+  };
+  state.data.categories.push(cat);
+  saveData();
+  return cat;
+}
+
+function deleteCategory(id) {
+  // Allow deleting category even if used; transactions keep the categoryId
+  // but the name will show as "—" (handled in render). This is fine for MVP.
+  state.data.categories = state.data.categories.filter(c => c.id !== id);
+  saveData();
+}
+
+function updateCategory(id, { name, type, color }) {
+  const cat = state.data.categories.find(c => c.id === id);
+  if (!cat) return;
+  cat.name = name.trim();
+  cat.type = type;
+  cat.color = color;
+  saveData();
+}
+
+function archiveCategory(id) {
+  const c = state.data.categories.find(c => c.id === id);
+  if (c) { c.archived = true; saveData(); }
+}
+
+function unarchiveCategory(id) {
+  const c = state.data.categories.find(c => c.id === id);
+  if (c) { c.archived = false; saveData(); }
+}
+
+function categoryHasTransactions(id) {
+  return state.data.transactions.some(t => t.categoryId === id);
+}
+
+function createTransaction({ date, type, amount, accountId, categoryId, note, toAccountId, toAmount }) {
+  const now = new Date().toISOString();
+  const acc = findAccount(accountId);
+  const fromCur = acc ? acc.currency : 'EUR';
+
+  if (type === 'Transfer') {
+    const toAcc = findAccount(toAccountId);
+    const toCur = toAcc ? toAcc.currency : fromCur;
+    const amt = parseFloat(amount);
+    // Same currency: toAmount equals amount. Cross-currency: from form.
+    let toAmt = (fromCur === toCur)
+      ? amt
+      : (toAmount != null && toAmount !== '' ? parseFloat(toAmount) : convertCurrency(amt, fromCur, toCur));
+    state.data.transactions.push({
+      id: uid(),
+      date,
+      type: 'Transfer',
+      amount: amt,
+      currency: fromCur,
+      accountId,
+      categoryId: null,
+      toAccountId,
+      toAmount: toAmt,
+      toCurrency: toCur,
+      eventId: null,
+      note: (note || '').trim(),
+      createdAt: now,
+      updatedAt: now
+    });
+  } else {
+    state.data.transactions.push({
+      id: uid(),
+      date,
+      type,
+      amount: parseFloat(amount),
+      currency: fromCur,
+      accountId,
+      categoryId,
+      toAccountId: null,
+      toAmount: null,
+      toCurrency: null,
+      eventId: null,
+      note: (note || '').trim(),
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+  saveData();
+}
+
+function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount }) {
+  const tx = state.data.transactions.find(t => t.id === id);
+  if (!tx) return;
+  const now = new Date().toISOString();
+  const acc = findAccount(accountId);
+  const fromCur = acc ? acc.currency : 'EUR';
+
+  if (type === 'Transfer') {
+    const toAcc = findAccount(toAccountId);
+    const toCur = toAcc ? toAcc.currency : fromCur;
+    const amt = parseFloat(amount);
+    let toAmt = (fromCur === toCur)
+      ? amt
+      : (toAmount != null && toAmount !== '' ? parseFloat(toAmount) : convertCurrency(amt, fromCur, toCur));
+    tx.date = date;
+    tx.type = 'Transfer';
+    tx.amount = amt;
+    tx.currency = fromCur;
+    tx.accountId = accountId;
+    tx.categoryId = null;
+    tx.toAccountId = toAccountId;
+    tx.toAmount = toAmt;
+    tx.toCurrency = toCur;
+    tx.note = (note || '').trim();
+    tx.updatedAt = now;
+  } else {
+    tx.date = date;
+    tx.type = type;
+    tx.amount = parseFloat(amount);
+    tx.currency = fromCur;
+    tx.accountId = accountId;
+    tx.categoryId = categoryId;
+    tx.toAccountId = null;
+    tx.toAmount = null;
+    tx.toCurrency = null;
+    tx.note = (note || '').trim();
+    tx.updatedAt = now;
+  }
+  saveData();
+}
+
+function deleteTransaction(id) {
+  state.data.transactions = state.data.transactions.filter(t => t.id !== id);
+  saveData();
+}
+
+/* ============================================================
+   RENDERERS — VIEWS
+   ============================================================ */
+
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    ${renderHeader()}
+    <main>${renderView()}</main>
+    ${renderFab()}
+    ${renderNav()}
+    ${state.modal ? renderModal() : ''}
+  `;
+}
+
+function renderHeader() {
+  const cm = todayISO().slice(0, 7);
+  const monthTx = state.data.transactions.filter(t => monthKey(t.date) === cm);
+  // Aggregate income/expense per currency
+  const byCur = {};
+  for (const t of monthTx) {
+    if (t.type !== 'Income' && t.type !== 'Expense') continue;
+    const cur = t.currency || 'EUR';
+    if (!byCur[cur]) byCur[cur] = { inc: 0, exp: 0 };
+    if (t.type === 'Income') byCur[cur].inc += t.amount;
+    else byCur[cur].exp += t.amount;
+  }
+  // Display the primary (most active) currency, with hint if others exist
+  const currencies = Object.keys(byCur);
+  let primary = state.data.baseCurrency || 'EUR';
+  if (currencies.length > 0 && !byCur[primary]) primary = currencies[0];
+  const data = byCur[primary] || { inc: 0, exp: 0 };
+  const net = data.inc - data.exp;
+  const others = currencies.filter(c => c !== primary);
+
+  return `
+    <header class="app-head">
+      <div class="top">
+        <h1>Фінанси</h1>
+        <span class="month">${fmtMonthLabel(cm)}</span>
+      </div>
+      <div class="summary">
+        <div class="cell">
+          <div class="lbl">Доход</div>
+          <div class="val" style="color: var(--income)">${fmtMoney(data.inc, false, primary)}</div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Витрати</div>
+          <div class="val" style="color: var(--expense)">${fmtMoney(data.exp, false, primary)}</div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Net</div>
+          <div class="val" style="color: ${net >= 0 ? 'var(--income)' : 'var(--expense)'}">${fmtMoney(net, true, primary)}</div>
+        </div>
+      </div>
+      ${others.length > 0 ? `<div class="head-hint">+ є транзакції в ${others.join(', ')}</div>` : ''}
+    </header>
+  `;
+}
+
+function renderView() {
+  // Sub-views take priority
+  if (state.subView) {
+    if (state.subView.type === 'accountDetail') return renderAccountDetail();
+  }
+  switch (state.view) {
+    case 'transactions': return renderTransactions();
+    case 'accounts':     return renderAccounts();
+    case 'stats':        return renderStats();
+    case 'settings':     return renderSettings();
+  }
+  return '';
+}
+
+function renderTransactions() {
+  const txs = [...state.data.transactions].sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+
+  if (txs.length === 0) {
+    return `
+      <div class="empty">
+        <div class="title">Порожньо</div>
+        <div class="hint">${state.data.accounts.length === 0
+          ? 'Спочатку додай рахунок у вкладці «Рахунки»'
+          : 'Тапни «+» щоб додати транзакцію'}</div>
+      </div>`;
+  }
+
+  // Group by date
+  const groups = {};
+  for (const t of txs) {
+    if (!groups[t.date]) groups[t.date] = [];
+    groups[t.date].push(t);
+  }
+
+  let html = '';
+  for (const [date, list] of Object.entries(groups)) {
+    html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
+    for (const t of list) {
+      const info = describeTransaction(t);
+      html += `
+        <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
+          <span class="dot" style="background:${info.dotColor}"></span>
+          <div class="body">
+            <div class="top">
+              <span class="name">${escapeHtml(info.label)}</span>
+              ${info.amountHtml}
+            </div>
+            ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+  return html;
+}
+
+function renderAccounts() {
+  if (state.data.accounts.length === 0) {
+    return `
+      <div class="empty">
+        <div class="title">Жодного рахунку</div>
+        <div class="hint">Тапни «+» щоб створити перший</div>
+      </div>`;
+  }
+
+  const accounts = state.data.accounts.filter(a => !a.archived);
+  const withGoal = accounts.filter(a => a.goal);
+  const regular  = accounts.filter(a => !a.goal);
+
+  // Convert all balances to viewCurrency and sum
+  const view = state.data.viewCurrency || 'EUR';
+  let totalInView = 0;
+  for (const a of regular) {
+    totalInView += convertCurrency(getAccountBalance(a.id), a.currency, view);
+  }
+
+  // Per-currency totals (regular accounts only, no conversion)
+  const byCur = {};
+  for (const a of regular) {
+    if (!byCur[a.currency]) byCur[a.currency] = 0;
+    byCur[a.currency] += getAccountBalance(a.id);
+  }
+  const curList = Object.keys(byCur);
+
+  let html = `
+    <div class="view-cur-picker">
+      ${ALL_CURRENCIES.map(c => `
+        <button class="${view === c ? 'active' : ''}" data-action="set-view-cur" data-key="${c}">${CURRENCY_SYMBOLS[c]}</button>
+      `).join('')}
+    </div>
+    <div class="totals-hero">
+      <div class="lbl">Загальний баланс</div>
+      <div class="val num" style="color:${totalInView < 0 ? 'var(--expense)' : 'var(--accent)'}">${fmtMoney(totalInView, false, view)}</div>
+    </div>
+    ${curList.length > 1 ? `
+      <div class="totals-by-cur">
+        <div class="totals-by-cur-head">По валютах</div>
+        ${curList.map(cur => `
+          <div class="totals-by-cur-row">
+            <span class="cur-code">${cur}</span>
+            <span class="cur-val num" style="color:${byCur[cur] < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(byCur[cur], false, cur)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+
+  if (regular.length > 0) {
+    html += `<section>
+      <div class="section-head">Активні · ${regular.length}</div>
+    `;
+    for (const a of regular) {
+      const bal = getAccountBalance(a.id);
+      html += `
+        <div class="acc-card" data-action="open-acc-detail" data-id="${a.id}">
+          <span class="swatch" style="background:${a.color}"></span>
+          <div class="info">
+            <div class="name">${escapeHtml(a.name)}</div>
+            <div class="cur">${a.currency}</div>
+          </div>
+          <div class="balance num" style="color:${bal < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(bal, false, a.currency)}</div>
+        </div>
+      `;
+    }
+    html += '</section>';
+  }
+
+  if (withGoal.length > 0) {
+    html += `<section>
+      <div class="section-head">Цілі · ${withGoal.length}</div>
+    `;
+    for (const a of withGoal) {
+      const bal = getAccountBalance(a.id);
+      const pct = a.goal.amount > 0 ? Math.min(100, (bal / a.goal.amount) * 100) : 0;
+      const pctDisplay = a.goal.amount > 0 ? Math.round((bal / a.goal.amount) * 100) : 0;
+      html += `
+        <div class="goal-card" data-action="open-acc-detail" data-id="${a.id}">
+          <div class="goal-top">
+            <span class="swatch" style="background:${a.color}"></span>
+            <div class="goal-name">${escapeHtml(a.name)}</div>
+            <div class="goal-pct num">${pctDisplay}%</div>
+          </div>
+          <div class="goal-bar">
+            <div class="goal-bar-fill" style="width:${pct}%; background:${a.color}"></div>
+          </div>
+          <div class="goal-nums">
+            <span class="num">${fmtMoney(bal, false, a.currency)}</span>
+            <span class="muted num">/ ${fmtMoney(a.goal.amount, false, a.currency)}</span>
+          </div>
+          ${a.goal.description ? `<div class="goal-desc">${escapeHtml(a.goal.description)}</div>` : ''}
+        </div>
+      `;
+    }
+    html += '</section>';
+  }
+
+  // Archived accounts section
+  const archived = state.data.accounts.filter(a => a.archived);
+  if (archived.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">Архівні · ${archived.length}</div>
+    `;
+    for (const a of archived) {
+      const bal = getAccountBalance(a.id);
+      html += `
+        <div class="acc-card archived-row" data-action="open-acc-detail" data-id="${a.id}">
+          <span class="swatch" style="background:${a.color}; opacity: 0.5"></span>
+          <div class="info">
+            <div class="name" style="opacity: 0.6">${escapeHtml(a.name)}</div>
+            <div class="cur">${a.currency}</div>
+          </div>
+          <div class="balance num" style="opacity: 0.6">${fmtMoney(bal, false, a.currency)}</div>
+        </div>
+      `;
+    }
+    html += `</section>`;
+  }
+
+  return html;
+}
+
+function renderAccountDetail() {
+  const acc = findAccount(state.subView.id);
+  if (!acc) {
+    state.subView = null;
+    return renderAccounts();
+  }
+
+  const txs = state.data.transactions
+    .filter(t => t.accountId === acc.id || (t.type === 'Transfer' && t.toAccountId === acc.id))
+    .sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+
+  const bal = getAccountBalance(acc.id);
+
+  let html = `
+    <div class="detail-head">
+      <button class="back" data-action="back-to-accounts">‹ Назад</button>
+      <div class="detail-head-actions">
+        ${acc.archived
+          ? `<button class="icon-btn" data-action="unarchive-acc" data-id="${acc.id}" title="Розархівувати">${ICONS.archive}</button>`
+          : `<button class="icon-btn" data-action="edit-acc" data-id="${acc.id}">${ICONS.edit}</button>
+             <button class="icon-btn danger-hover" data-action="del-acc-from-detail" data-id="${acc.id}">${ICONS.trash}</button>`
+        }
+      </div>
+    </div>
+    <div class="detail-hero">
+      <div class="detail-name-row">
+        <span class="swatch" style="background:${acc.color}"></span>
+        <span class="detail-name serif">${escapeHtml(acc.name)}</span>
+      </div>
+      <div class="detail-balance num" style="color:${bal < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(bal, false, acc.currency)}</div>
+      <div class="detail-cur">${acc.currency}</div>
+    </div>
+    <section>
+      <div class="section-head">Транзакції · ${txs.length}</div>
+  `;
+
+  if (txs.length === 0) {
+    html += `<div class="empty"><div class="hint">Поки немає транзакцій. Тапни «+»</div></div>`;
+  } else {
+    // Group by date
+    const groups = {};
+    for (const t of txs) {
+      if (!groups[t.date]) groups[t.date] = [];
+      groups[t.date].push(t);
+    }
+    for (const [date, list] of Object.entries(groups)) {
+      html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
+      for (const t of list) {
+        const info = describeTransaction(t, { hideAccountInMeta: true });
+        html += `
+          <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
+            <span class="dot" style="background:${info.dotColor}"></span>
+            <div class="body">
+              <div class="top">
+                <span class="name">${escapeHtml(info.label)}</span>
+                ${info.amountHtml}
+              </div>
+              ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+  html += '</section>';
+  return html;
+}
+
+function renderStats() {
+  const allTxs = state.data.transactions;
+
+  if (allTxs.length === 0) {
+    return `
+      <div class="view-title serif">Статистика</div>
+      <div class="view-sub">Поки порожньо</div>
+      <div class="empty">
+        <div class="hint">Статистика з'явиться після першої транзакції</div>
+      </div>`;
+  }
+
+  const view = state.data.viewCurrency || 'EUR';
+
+  // Helper: convert tx amount into viewCurrency
+  const inView = (t) => convertCurrency(t.amount, t.currency || 'EUR', view);
+
+  // Monthly history (last 6 months)
+  const months = [];
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const mtx = allTxs.filter(t => monthKey(t.date) === key);
+    const inc = mtx.filter(t => t.type === 'Income').reduce((s, t) => s + inView(t), 0);
+    const exp = mtx.filter(t => t.type === 'Expense').reduce((s, t) => s + inView(t), 0);
+    months.push({ key, inc, exp, net: inc - exp });
+  }
+
+  const maxMonth = Math.max(1, ...months.map(m => Math.max(m.inc, m.exp)));
+
+  // Category breakdown (current month, expenses)
+  const cm = todayISO().slice(0, 7);
+  const byCat = {};
+  for (const t of allTxs) {
+    if (t.type !== 'Expense' || monthKey(t.date) !== cm) continue;
+    const cat = findCategory(t.categoryId);
+    const key = cat ? cat.name : '—';
+    if (!byCat[key]) byCat[key] = { total: 0, color: cat ? cat.color : 'var(--text-3)' };
+    byCat[key].total += inView(t);
+  }
+  const catList = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total);
+  const catTotal = catList.reduce((s, [, v]) => s + v.total, 0);
+
+  let html = `
+    <div class="view-title serif">Статистика</div>
+    <div class="view-sub">${fmtMonthLabel(cm)} · усе в ${view}</div>
+
+    <section>
+      <div class="section-head">Місячна історія · 6 міс</div>
+  `;
+  for (const m of months) {
+    html += `
+      <div class="month-bar-row">
+        <div class="top">
+          <span class="mlbl">${fmtMonthLabel(m.key)}</span>
+          <span class="net" style="color: ${m.net >= 0 ? 'var(--income)' : 'var(--expense)'}">${fmtMoney(m.net, true, view)}</span>
+        </div>
+        <div class="month-bar">
+          <div class="inc"><span style="width:${(m.inc / maxMonth) * 100}%"></span></div>
+          <div class="exp"><span style="width:${(m.exp / maxMonth) * 100}%"></span></div>
+        </div>
+        <div class="nums">
+          <span style="color: var(--income)">+${fmtMoney(m.inc, false, view).replace('+','').replace('−','')}</span>
+          <span style="color: var(--expense)">−${fmtMoney(m.exp, false, view).replace('+','').replace('−','')}</span>
+        </div>
+      </div>
+    `;
+  }
+  html += `</section>`;
+
+  if (catList.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">Витрати за категоріями · ${fmtMonthLabel(cm)}</div>
+    `;
+    for (const [name, v] of catList) {
+      const pct = catTotal > 0 ? (v.total / catTotal) * 100 : 0;
+      html += `
+        <div class="stat-line" style="border-bottom: none; padding-bottom: 4px;">
+          <span class="lbl"><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${v.color};margin-right:8px;vertical-align:middle"></span>${escapeHtml(name)}</span>
+          <span class="val">${fmtMoney(v.total, false, view)}</span>
+        </div>
+        <div style="height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 10px;">
+          <div style="width: ${pct}%; height: 100%; background: ${v.color}; border-radius: 2px;"></div>
+        </div>
+      `;
+    }
+    html += `</section>`;
+  }
+
+  // Account balances at-a-glance
+  const accs = state.data.accounts.filter(a => !a.archived);
+  if (accs.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">Баланси рахунків</div>
+    `;
+    for (const a of accs) {
+      const bal = getAccountBalance(a.id);
+      html += `
+        <div class="stat-line">
+          <span class="lbl"><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${a.color};margin-right:8px;vertical-align:middle"></span>${escapeHtml(a.name)}</span>
+          <span class="val num" style="color:${bal < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(bal, false, a.currency)}</span>
+        </div>
+      `;
+    }
+    html += `</section>`;
+  }
+  return html;
+}
+
+function renderSettings() {
+  return `
+    <div class="view-title serif">Налаштування</div>
+    <div class="view-sub">Категорії, курси, інше</div>
+
+    <div class="stab-bar">
+      <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
+      <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
+      <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про додаток</button>
+    </div>
+
+    ${state.settingsTab === 'categories' ? renderCategoriesSettings()
+     : state.settingsTab === 'rates' ? renderRatesSettings()
+     : renderAboutSettings()}
+  `;
+}
+
+function renderRatesSettings() {
+  const rates = state.data.fxRates || {};
+  // Display as "1 EUR = X CUR" — inverse of stored rate
+  // Stored rates[CUR] = how many EUR 1 unit of CUR equals
+  // So 1 EUR = 1 / rates[CUR] units of CUR
+  const display = (cur) => {
+    const r = rates[cur];
+    if (!r) return '';
+    return (1 / r).toFixed(cur === 'UAH' ? 2 : 4);
+  };
+
+  return `
+    <section style="margin-top: 6px;">
+      <div class="section-head">Курси відносно EUR</div>
+      <div class="rates-hint">Вводь у форматі «1 EUR = X». Курси вживаються для перекладів і зведеної статистики.</div>
+      ${['UAH', 'USD', 'GBP'].map(cur => `
+        <div class="rate-row">
+          <div class="rate-label">
+            <span class="rate-eur">1 EUR</span>
+            <span class="rate-eq">=</span>
+            <input class="input rate-input num"
+              type="number" inputmode="decimal" step="0.0001"
+              data-form="rate_${cur}"
+              value="${display(cur)}"
+              placeholder="0">
+            <span class="rate-cur">${cur}</span>
+          </div>
+        </div>
+      `).join('')}
+      <div class="rates-tip">Зміни зберігаються автоматично після виходу з поля.</div>
+    </section>
+  `;
+}
+
+function renderCategoriesSettings() {
+  const cats = state.data.categories;
+  const active = cats.filter(c => !c.archived);
+  const archived = cats.filter(c => c.archived);
+  const inc = active.filter(c => c.type === 'Income');
+  const exp = active.filter(c => c.type === 'Expense');
+
+  let html = `
+    <button class="add-btn" data-action="open-new-cat">+ Додати категорію</button>
+  `;
+
+  if (cats.length === 0) {
+    html += `<div class="empty"><div class="hint">Ще немає категорій</div></div>`;
+    return html;
+  }
+
+  if (inc.length > 0) {
+    html += `<section style="margin-top: 22px;"><div class="section-head">Дохід · ${inc.length}</div>`;
+    for (const c of inc) html += renderCatRow(c);
+    html += `</section>`;
+  }
+  if (exp.length > 0) {
+    html += `<section><div class="section-head">Витрати · ${exp.length}</div>`;
+    for (const c of exp) html += renderCatRow(c);
+    html += `</section>`;
+  }
+
+  if (archived.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">Архівовані · ${archived.length}</div>
+        ${archived.map(c => renderArchivedCatRow(c)).join('')}
+      </section>
+    `;
+  }
+
+  return html;
+}
+
+function renderCatRow(c) {
+  return `
+    <div class="cat-row">
+      <span class="swatch" style="background:${c.color}"></span>
+      <span class="name">${escapeHtml(c.name)}</span>
+      <button class="del" data-action="edit-cat" data-id="${c.id}">${ICONS.edit}</button>
+      <button class="del" data-action="del-cat" data-id="${c.id}">${ICONS.trash}</button>
+    </div>
+  `;
+}
+
+function renderArchivedCatRow(c) {
+  return `
+    <div class="cat-row archived-row">
+      <span class="swatch" style="background:${c.color}; opacity: 0.5"></span>
+      <span class="name" style="opacity: 0.6">${escapeHtml(c.name)}</span>
+      <span class="type-pill" style="opacity: 0.6">${c.type === 'Income' ? 'Дохід' : 'Витрата'}</span>
+      <button class="del" data-action="unarchive-cat" data-id="${c.id}" title="Розархівувати">${ICONS.archive}</button>
+    </div>
+  `;
+}
+
+function renderAboutSettings() {
+  return `
+    <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
+      <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
+      <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
+      <p style="margin-bottom: 12px;">Етап 3 завершено: редагування транзакцій, рахунків (без зміни валюти), категорій. Архівація замість видалення для тих, що мають історію.</p>
+      <p style="margin-bottom: 18px;">Наступне: бюджети та події (Етап 4).</p>
+
+      <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
+        <strong style="color: var(--text); display: block; margin-bottom: 6px;">Якщо щось працює дивно</strong>
+        <span style="color: var(--text-3);">Найімовірніше — кеш браузера. Закрий вкладку, у Chrome відкрий: Меню → «Очистити дані сайту» для цього домена. Якщо PWA з домашнього екрану — видали і додай заново. Свіжа версія завжди показує номер цієї збірки тут.</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderFab() {
+  // Hide on settings + stats (no creation context)
+  if (state.view === 'settings' || state.view === 'stats') return '';
+  // In account-detail sub-view, "+" creates a transaction for THIS account
+  if (state.subView && state.subView.type === 'accountDetail') {
+    return `<button class="fab" data-action="open-new-tx-for-account" data-id="${state.subView.id}">${ICONS.plus}</button>`;
+  }
+  const action = state.view === 'accounts' ? 'open-new-acc' : 'open-new-tx';
+  return `<button class="fab" data-action="${action}">${ICONS.plus}</button>`;
+}
+
+function renderNav() {
+  const tabs = [
+    { key: 'transactions', label: 'Список', icon: ICONS.list },
+    { key: 'accounts',     label: 'Рахунки', icon: ICONS.wallet },
+    { key: 'stats',        label: 'Статистика', icon: ICONS.chart },
+    { key: 'settings',     label: 'Налаштування', icon: ICONS.gear }
+  ];
+  return `
+    <nav class="tabs">
+      <div class="container">
+        ${tabs.map(t => `
+          <button class="${state.view === t.key ? 'active' : ''}" data-action="tab" data-key="${t.key}">
+            ${t.icon}
+            <span class="tab-lbl">${t.label}</span>
+          </button>
+        `).join('')}
+      </div>
+    </nav>
+  `;
+}
+
+/* ============================================================
+   RENDERERS — MODALS
+   ============================================================ */
+
+function renderModal() {
+  switch (state.modal) {
+    case 'newTx':         return renderNewTxModal();
+    case 'newAcc':        return renderNewAccModal();
+    case 'newCat':        return renderNewCatModal();
+    case 'txDetail':      return renderTxDetail();
+    case 'confirmDelTx':  return renderConfirmDelTx();
+    case 'confirmDelAcc': return renderConfirmDelAcc();
+    case 'confirmDelCat': return renderConfirmDelCat();
+    case 'confirmArchiveAcc': return renderConfirmArchiveAcc();
+    case 'confirmArchiveCat': return renderConfirmArchiveCat();
+    case 'infoBlocked':   return renderBlocked();
+  }
+  return '';
+}
+
+function renderConfirmArchiveAcc() {
+  const a = state.modalCtx;
+  if (!a) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Архівувати рахунок?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${a.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(a.name)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-2); line-height: 1.5">На цьому рахунку є транзакції — видалити його неможливо.</div>
+          <div style="font-size: 13px; color: var(--text-2); line-height: 1.5; margin-top: 10px">Архівація прибере його зі списків вибору для нових транзакцій, але вся історія залишиться. Розархівувати можна в Налаштуваннях.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="archive-acc-from-detail" data-id="${a.id}">Архівувати</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmArchiveCat() {
+  const c = state.modalCtx;
+  if (!c) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Архівувати категорію?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${c.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(c.name)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-2); line-height: 1.5">Категорія використовується у транзакціях. Архівація прибере її зі списків вибору, але існуючі транзакції збережуть її як назву.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="archive-cat-confirmed" data-id="${c.id}">Архівувати</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTxDetail() {
+  const t = state.modalCtx;
+  if (!t) return '';
+
+  // Transfer has different layout
+  if (t.type === 'Transfer') {
+    const fromAcc = findAccount(t.accountId);
+    const toAcc = findAccount(t.toAccountId);
+    const fromCur = t.currency || (fromAcc ? fromAcc.currency : 'EUR');
+    const toCur = t.toCurrency || (toAcc ? toAcc.currency : fromCur);
+    const sameCur = fromCur === toCur;
+
+    return `
+      <div class="scrim">
+        <div class="sheet">
+          <div class="sheet-head">
+            <span class="title">Переказ</span>
+            <button class="close" data-action="close-modal">${ICONS.close}</button>
+          </div>
+          <div class="sheet-body">
+            <div class="tx-preview">
+              <div class="tx-preview-amount num" style="color: var(--transfer)">
+                ${fmtMoney(t.amount, false, fromCur)}${sameCur ? '' : ` → ${fmtMoney(t.toAmount, false, toCur)}`}
+              </div>
+              <div class="tx-preview-row">
+                <span class="lbl">З рахунку</span>
+                <span class="val">${fromAcc ? `<span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${fromAcc.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(fromAcc.name)}` : '—'}</span>
+              </div>
+              <div class="tx-preview-row">
+                <span class="lbl">На рахунок</span>
+                <span class="val">${toAcc ? `<span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${toAcc.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(toAcc.name)}` : '—'}</span>
+              </div>
+              <div class="tx-preview-row">
+                <span class="lbl">Дата</span>
+                <span class="val">${fmtDateLabel(t.date)}</span>
+              </div>
+              ${t.note ? `
+                <div class="tx-preview-row">
+                  <span class="lbl">Примітка</span>
+                  <span class="val">${escapeHtml(t.note)}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          <div class="sheet-foot foot-3">
+            <button class="btn secondary" data-action="close-modal">Закрити</button>
+            <button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>
+            <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Regular Income/Expense/Opening
+  const acc = findAccount(t.accountId);
+  const cat = findCategory(t.categoryId);
+  const isInc = t.type === 'Income';
+  const isOpen = t.type === 'Opening';
+  const label = isOpen ? 'Початковий залишок' : (cat ? cat.name : '—');
+  const amountColor = (isInc || isOpen) ? 'var(--income)' : 'var(--expense)';
+  const sign = (isInc || isOpen) ? '+' : '−';
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">Транзакція</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+          <div class="tx-preview">
+            <div class="tx-preview-amount num" style="color:${amountColor}">${sign}${fmtMoney(Math.abs(t.amount), false, t.currency).replace('−','').replace('+','')}</div>
+            <div class="tx-preview-row">
+              <span class="lbl">Категорія</span>
+              <span class="val">${cat ? `<span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${cat.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(label)}` : escapeHtml(label)}</span>
+            </div>
+            <div class="tx-preview-row">
+              <span class="lbl">Рахунок</span>
+              <span class="val">${acc ? `<span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${acc.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(acc.name)}` : '—'}</span>
+            </div>
+            <div class="tx-preview-row">
+              <span class="lbl">Дата</span>
+              <span class="val">${fmtDateLabel(t.date)}</span>
+            </div>
+            ${t.note ? `
+              <div class="tx-preview-row">
+                <span class="lbl">Примітка</span>
+                <span class="val">${escapeHtml(t.note)}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+        <div class="sheet-foot foot-3">
+          <button class="btn secondary" data-action="close-modal">Закрити</button>
+          ${t.type !== 'Opening' ? `<button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>` : '<span></span>'}
+          <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderNewTxModal() {
+  const f = state.modalForm;
+  const accs = state.data.accounts.filter(a => !a.archived);
+  const isEdit = !!f.editingId;
+  const isTransfer = f.type === 'Transfer';
+
+  // Validity differs by type
+  let valid = false;
+  if (isTransfer) {
+    const fromAcc = accs.find(a => a.id === f.accountId);
+    const toAcc = accs.find(a => a.id === f.toAccountId);
+    const amtOk = f.amount && parseFloat(f.amount) > 0;
+    const diffAccs = f.accountId && f.toAccountId && f.accountId !== f.toAccountId;
+    const toAmtOk = (fromAcc && toAcc && fromAcc.currency === toAcc.currency)
+                    || (f.toAmount && parseFloat(f.toAmount) > 0);
+    valid = fromAcc && toAcc && diffAccs && amtOk && toAmtOk;
+  } else {
+    const availableCats = state.data.categories.filter(c => c.type === f.type && !c.archived);
+    const validAcc = f.accountId && accs.some(a => a.id === f.accountId);
+    const validCat = f.categoryId && availableCats.some(c => c.id === f.categoryId);
+    const validAmt = f.amount && parseFloat(f.amount) > 0;
+    valid = validAcc && validCat && validAmt;
+  }
+
+  const title = isEdit
+    ? (isTransfer ? 'Редагувати переказ' : 'Редагувати транзакцію')
+    : (isTransfer ? 'Новий переказ' : 'Нова транзакція');
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">${title}</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          <div class="field">
+            <div class="toggle toggle-3">
+              <button class="${f.type === 'Income' ? 'active income' : ''}" data-action="tx-type" data-key="Income">
+                <span class="ico">${ICONS.down}</span>
+                <span>Дохід</span>
+              </button>
+              <button class="${f.type === 'Expense' ? 'active expense' : ''}" data-action="tx-type" data-key="Expense">
+                <span class="ico">${ICONS.up}</span>
+                <span>Витрата</span>
+              </button>
+              <button class="${f.type === 'Transfer' ? 'active transfer' : ''}" data-action="tx-type" data-key="Transfer">
+                <span class="ico">${ICONS.swap}</span>
+                <span>Переказ</span>
+              </button>
+            </div>
+          </div>
+
+          ${isTransfer
+            ? renderTxFormTransfer(f, accs)
+            : renderTxFormRegular(f, accs)}
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Дата</span></div>
+            <input class="input" type="date" value="${escapeAttr(f.date || todayISO())}" data-form="date">
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Примітка</span><span class="opt">опційно</span></div>
+            <input class="input" type="text" placeholder="" value="${escapeAttr(f.note || '')}" data-form="note">
+          </div>
+
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="save-tx" ${valid ? '' : 'disabled'}>${isEdit ? 'Оновити' : 'Зберегти'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTxFormRegular(f, accs) {
+  const availableCats = state.data.categories.filter(c => c.type === f.type && !c.archived);
+  const acc = accs.find(a => a.id === f.accountId);
+  const cur = acc ? acc.currency : 'EUR';
+
+  return `
+    <div class="field">
+      <div class="field-label"><span class="lbl">Сума</span>${acc ? `<span class="opt">${cur}</span>` : ''}</div>
+      <input class="input amount num" type="number" inputmode="decimal" step="0.01"
+        placeholder="0.00" value="${escapeAttr(f.amount || '')}"
+        data-form="amount">
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span class="lbl">Рахунок</span></div>
+      <select class="select" data-form="accountId">
+        <option value="">— оберіть —</option>
+        ${accs.map(a => `<option value="${a.id}" ${f.accountId === a.id ? 'selected' : ''}>${escapeHtml(a.name)} · ${a.currency}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span class="lbl">Категорія</span></div>
+      <select class="select" data-form="categoryId">
+        <option value="">— оберіть —</option>
+        ${availableCats.map(c => `<option value="${c.id}" ${f.categoryId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+        <option value="__new__">+ Нова категорія…</option>
+      </select>
+    </div>
+  `;
+}
+
+function renderTxFormTransfer(f, accs) {
+  const fromAcc = accs.find(a => a.id === f.accountId);
+  const toAcc = accs.find(a => a.id === f.toAccountId);
+  const sameCur = fromAcc && toAcc && fromAcc.currency === toAcc.currency;
+  const crossCur = fromAcc && toAcc && !sameCur;
+  const fromCur = fromAcc ? fromAcc.currency : '';
+  const toCur = toAcc ? toAcc.currency : '';
+
+  // Available "to" accounts: all except the chosen "from"
+  const toAccs = accs.filter(a => a.id !== f.accountId);
+
+  return `
+    <div class="field">
+      <div class="field-label"><span class="lbl">З рахунку</span></div>
+      <select class="select" data-form="accountId">
+        <option value="">— оберіть —</option>
+        ${accs.map(a => `<option value="${a.id}" ${f.accountId === a.id ? 'selected' : ''}>${escapeHtml(a.name)} · ${a.currency}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span class="lbl">На рахунок</span></div>
+      <select class="select" data-form="toAccountId">
+        <option value="">— оберіть —</option>
+        ${toAccs.map(a => `<option value="${a.id}" ${f.toAccountId === a.id ? 'selected' : ''}>${escapeHtml(a.name)} · ${a.currency}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span class="lbl">Сума списання</span>${fromCur ? `<span class="opt">${fromCur}</span>` : ''}</div>
+      <input class="input amount num" type="number" inputmode="decimal" step="0.01"
+        placeholder="0.00" value="${escapeAttr(f.amount || '')}"
+        data-form="amount" id="tx-from-amount">
+    </div>
+
+    ${crossCur ? `
+      <div class="field">
+        <div class="field-label">
+          <span class="lbl">Сума зарахування</span>
+          <span class="opt">${toCur}</span>
+        </div>
+        <input class="input amount num" type="number" inputmode="decimal" step="0.01"
+          placeholder="0.00" value="${escapeAttr(f.toAmount || '')}"
+          data-form="toAmount" id="tx-to-amount">
+        <div class="cross-cur-hint">
+          ${f.amount && parseFloat(f.amount) > 0
+            ? `За курсом ≈ ${fmtMoney(convertCurrency(parseFloat(f.amount), fromCur, toCur), false, toCur)}. Скорегуй якщо банк дав інше.`
+            : 'Розрахується автоматично за курсом, можеш скорегувати.'}
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderNewAccModal() {
+  const f = state.modalForm;
+  const isEdit = !!f.editingId;
+  const valid = f.name && f.name.trim().length > 0 && f.currency && !state.data.accounts.some(a => a.name === f.name.trim() && a.id !== f.editingId);
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">${isEdit ? 'Редагувати рахунок' : 'Новий рахунок'}</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Назва</span></div>
+            <input class="input" type="text" placeholder="напр. AIB Current" value="${escapeAttr(f.name || '')}" data-form="name">
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Валюта</span>${isEdit ? '<span class="opt">не можна змінити</span>' : ''}</div>
+            ${isEdit ? `
+              <div class="input" style="display: flex; align-items: center; gap: 8px; opacity: 0.6;">
+                <span class="serif" style="font-size: 18px;">${CURRENCY_SYMBOLS[f.currency]}</span>
+                <span style="font-size: 11px; letter-spacing: 0.12em;">${f.currency}</span>
+              </div>
+            ` : `
+              <div class="cur-pick">
+                ${ALL_CURRENCIES.map(c => `
+                  <button class="${f.currency === c ? 'active' : ''}" data-action="pick-currency" data-key="${c}">
+                    <span class="sym">${CURRENCY_SYMBOLS[c]}</span>
+                    <span class="code">${c}</span>
+                  </button>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Колір</span></div>
+            <div class="colors">
+              ${COLOR_PALETTE.map(c => `
+                <button class="${f.color === c ? 'active' : ''}" style="background:${c}" data-action="pick-color" data-key="${c}"></button>
+              `).join('')}
+            </div>
+          </div>
+
+          ${!isEdit ? `
+            <div class="field">
+              <div class="field-label"><span class="lbl">Стартовий залишок</span><span class="opt">опційно</span></div>
+              <input class="input amount num" type="number" inputmode="decimal" step="0.01"
+                placeholder="0.00" value="${escapeAttr(f.openingBalance || '')}"
+                data-form="openingBalance">
+              <div style="font-size:11px;color:var(--text-3);margin-top:6px;font-style:italic">Якщо заповниш — створиться транзакція «Початковий залишок» на сьогодні в валюті рахунку</div>
+            </div>
+          ` : ''}
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Ціль накопичення</span><span class="opt">опційно</span></div>
+            <input class="input amount num" type="number" inputmode="decimal" step="0.01"
+              placeholder="напр. 1000"
+              value="${escapeAttr(f.goalAmount || '')}"
+              data-form="goalAmount">
+            <input class="input" type="text" style="margin-top: 8px;"
+              placeholder="опис цілі (напр. «MacBook»)"
+              value="${escapeAttr(f.goalDescription || '')}"
+              data-form="goalDescription">
+            <div style="font-size:11px;color:var(--text-3);margin-top:6px;font-style:italic">${isEdit ? 'Очисти суму щоб прибрати ціль' : 'Якщо заповниш суму — рахунок іде в секцію «Цілі» з прогрес-баром'}</div>
+          </div>
+
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="save-acc" ${valid ? '' : 'disabled'}>${isEdit ? 'Оновити' : 'Зберегти'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderNewCatModal() {
+  const f = state.modalForm;
+  const isEdit = !!f.editingId;
+  const valid = f.name && f.name.trim().length > 0 && f.type
+    && !state.data.categories.some(c => c.name === f.name.trim() && c.type === f.type && c.id !== f.editingId);
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">${isEdit ? 'Редагувати категорію' : 'Нова категорія'}</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          <div class="field">
+            <div class="toggle">
+              <button class="${f.type === 'Income' ? 'active income' : ''}" data-action="cat-type" data-key="Income">
+                <span class="ico">${ICONS.down}</span>
+                <span>Дохід</span>
+              </button>
+              <button class="${f.type === 'Expense' ? 'active expense' : ''}" data-action="cat-type" data-key="Expense">
+                <span class="ico">${ICONS.up}</span>
+                <span>Витрата</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Назва</span></div>
+            <input class="input" type="text" placeholder="напр. Їжа, Зарплата" value="${escapeAttr(f.name || '')}" data-form="name">
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Колір</span></div>
+            <div class="colors">
+              ${COLOR_PALETTE.map(c => `
+                <button class="${f.color === c ? 'active' : ''}" style="background:${c}" data-action="pick-color" data-key="${c}"></button>
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="save-cat" ${valid ? '' : 'disabled'}>${isEdit ? 'Оновити' : 'Зберегти'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmDelTx() {
+  const t = state.modalCtx;
+  if (!t) return '';
+  const acc = findAccount(t.accountId);
+
+  let summary, amountHtml;
+  if (t.type === 'Transfer') {
+    const toAcc = findAccount(t.toAccountId);
+    const fromCur = t.currency || (acc ? acc.currency : 'EUR');
+    const toCur = t.toCurrency || (toAcc ? toAcc.currency : fromCur);
+    summary = `Переказ · ${acc ? escapeHtml(acc.name) : '—'} → ${toAcc ? escapeHtml(toAcc.name) : '—'}`;
+    amountHtml = `<div class="num" style="font-family: Fraunces, serif; font-size: 22px; color: var(--transfer)">${fmtMoney(t.amount, false, fromCur)}${fromCur === toCur ? '' : ` → ${fmtMoney(t.toAmount, false, toCur)}`}</div>`;
+  } else {
+    const cat = findCategory(t.categoryId);
+    const label = t.type === 'Opening' ? 'Початковий залишок' : (cat ? cat.name : '—');
+    summary = `${escapeHtml(label)} · ${acc ? escapeHtml(acc.name) : '—'}`;
+    amountHtml = `<div class="num" style="font-family: Fraunces, serif; font-size: 22px; color: ${t.type === 'Expense' ? 'var(--expense)' : 'var(--income)'}">${fmtMoney(t.amount, false, t.currency)}</div>`;
+  }
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Видалити транзакцію?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="font-size: 15px; margin-bottom: 8px">${summary}</div>
+          ${amountHtml}
+          <div style="font-size: 11px; color: var(--text-3); margin-top: 6px">${fmtDateLabel(t.date)}</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn danger" data-action="do-del-tx">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmDelAcc() {
+  const a = state.modalCtx;
+  if (!a) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Видалити рахунок?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${a.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(a.name)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-3)">Рахунок не має транзакцій — можна видалити безпечно.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn danger" data-action="do-del-acc">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmDelCat() {
+  const c = state.modalCtx;
+  if (!c) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Видалити категорію?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="swatch" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${c.color}"></span>
+            <span style="font-size: 16px">${escapeHtml(c.name)}</span>
+            <span class="type ${c.type.toLowerCase()}" style="font-size: 9px; padding: 3px 7px; border: 1px solid var(--border-2); border-radius: 4px; text-transform: uppercase; letter-spacing: 0.12em; color: ${c.type === 'Income' ? 'var(--income)' : 'var(--expense)'}">${c.type === 'Income' ? 'Дохід' : 'Витрата'}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-3)">Існуючі транзакції з цією категорією залишаться, але показуватимуться без назви категорії.</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn danger" data-action="do-del-cat">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBlocked() {
+  const msg = state.modalCtx || '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Неможливо видалити</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div class="banner">${escapeHtml(msg)}</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn primary" data-action="close-modal">Зрозуміло</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   ESCAPING
+   ============================================================ */
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* ============================================================
+   EVENT HANDLING
+   ============================================================ */
+
+function closeModalOrBack() {
+  if (state.pendingTx) {
+    state.modal = 'newTx';
+    state.modalForm = state.pendingTx;
+    state.pendingTx = null;
+    state.modalCtx = null;
+  } else {
+    state.modal = null;
+    state.modalCtx = null;
+    state.modalForm = {};
+  }
+}
+
+function updateCrossCurHint() {
+  const hint = document.querySelector('.cross-cur-hint');
+  if (!hint) return;
+  const f = state.modalForm;
+  const accs = state.data.accounts;
+  const from = accs.find(a => a.id === f.accountId);
+  const to = accs.find(a => a.id === f.toAccountId);
+  if (!from || !to || from.currency === to.currency) return;
+  const amt = parseFloat(f.amount);
+  if (isNaN(amt) || amt <= 0) {
+    hint.textContent = 'Розрахується автоматично за курсом, можеш скорегувати.';
+  } else {
+    const converted = convertCurrency(amt, from.currency, to.currency);
+    hint.textContent = `За курсом ≈ ${fmtMoney(converted, false, to.currency)}. Скорегуй якщо банк дав інше.`;
+  }
+}
+
+function autoFillToAmount() {
+  const f = state.modalForm;
+  const accs = state.data.accounts;
+  const from = accs.find(a => a.id === f.accountId);
+  const to = accs.find(a => a.id === f.toAccountId);
+  if (!from || !to) return;
+  if (from.currency === to.currency) return;
+  // Only autofill if user hasn't manually edited toAmount (we track via toAmountEdited)
+  if (state.modalForm.toAmountEdited) return;
+  const amt = parseFloat(f.amount);
+  if (isNaN(amt) || amt <= 0) return;
+  const converted = convertCurrency(amt, from.currency, to.currency);
+  state.modalForm.toAmount = converted.toFixed(2);
+}
+
+function setupEvents() {
+  const app = document.getElementById('app');
+
+  // Click delegation
+  app.addEventListener('click', (e) => {
+    // If clicked directly on the scrim background (not inside the sheet), close modal
+    if (e.target.classList && e.target.classList.contains('scrim')) {
+      closeModalOrBack();
+      render();
+      return;
+    }
+    const trigger = e.target.closest('[data-action]');
+    if (!trigger) return;
+    const action = trigger.dataset.action;
+    const key = trigger.dataset.key;
+    const id = trigger.dataset.id;
+    handleAction(action, key, id, trigger);
+  });
+
+  // Input changes (for modal forms)
+  app.addEventListener('input', (e) => {
+    if (e.target.dataset.form) {
+      const name = e.target.dataset.form;
+      state.modalForm[name] = e.target.value;
+
+      // Cross-currency transfer: live update of toAmount and hint when "from amount" changes
+      if (state.modal === 'newTx' && state.modalForm.type === 'Transfer') {
+        if (name === 'amount' && !state.modalForm.toAmountEdited) {
+          autoFillToAmount();
+          // Update the DOM directly — no re-render, no focus loss
+          const toInput = document.getElementById('tx-to-amount');
+          if (toInput) toInput.value = state.modalForm.toAmount || '';
+          updateCrossCurHint();
+        } else if (name === 'amount') {
+          updateCrossCurHint();
+        } else if (name === 'toAmount') {
+          state.modalForm.toAmountEdited = true;
+        }
+      }
+
+      toggleSubmitButton();
+    }
+  });
+
+  // Change events: only for SELECT elements.
+  // Text inputs fire 'change' on blur (e.g. when keyboard opens/closes on Android),
+  // which would re-render and steal focus — so we exclude them here.
+  app.addEventListener('change', (e) => {
+    if (e.target.dataset.form && e.target.tagName === 'SELECT') {
+      const val = e.target.value;
+      // Special case: "+ New category" option inside the category select
+      if (e.target.dataset.form === 'categoryId' && val === '__new__') {
+        const f = state.modalForm;
+        state.pendingTx = { ...f, categoryId: '' };  // clear placeholder
+        state.modal = 'newCat';
+        state.modalForm = { name: '', type: f.type || 'Expense', color: nextAutoColor() };
+        vibrate(10);
+        render();
+        return;
+      }
+      state.modalForm[e.target.dataset.form] = val;
+
+      // For Transfer: when accounts change, auto-fill toAmount via conversion
+      // (only if user hasn't typed toAmount themselves yet)
+      if (state.modal === 'newTx' && state.modalForm.type === 'Transfer') {
+        autoFillToAmount();
+      }
+
+      render();
+    }
+  });
+
+  // Blur on rate inputs — save the new rate when user finishes editing.
+  app.addEventListener('blur', (e) => {
+    if (e.target.dataset && e.target.dataset.form && e.target.dataset.form.startsWith('rate_')) {
+      const cur = e.target.dataset.form.slice(5);
+      const inv = parseFloat(e.target.value);
+      if (!isNaN(inv) && inv > 0) {
+        // User entered "1 EUR = inv CUR" → store rates[CUR] = 1/inv
+        state.data.fxRates[cur] = 1 / inv;
+        saveData();
+      }
+    }
+  }, true);  // useCapture true — 'blur' doesn't bubble
+}
+
+function toggleSubmitButton() {
+  const btn = document.querySelector('.sheet-foot .btn.primary');
+  if (!btn) return;
+  const f = state.modalForm;
+  let valid = false;
+  if (state.modal === 'newTx') {
+    if (f.type === 'Transfer') {
+      const accs = state.data.accounts.filter(a => !a.archived);
+      const fromAcc = accs.find(a => a.id === f.accountId);
+      const toAcc = accs.find(a => a.id === f.toAccountId);
+      const amtOk = f.amount && parseFloat(f.amount) > 0;
+      const diffAccs = f.accountId && f.toAccountId && f.accountId !== f.toAccountId;
+      const toAmtOk = (fromAcc && toAcc && fromAcc.currency === toAcc.currency)
+                      || (f.toAmount && parseFloat(f.toAmount) > 0);
+      valid = fromAcc && toAcc && diffAccs && amtOk && toAmtOk;
+    } else {
+      valid = f.accountId && f.categoryId && f.amount && parseFloat(f.amount) > 0;
+    }
+  } else if (state.modal === 'newAcc') {
+    valid = f.name && f.name.trim().length > 0 && f.currency && !state.data.accounts.some(a => a.name === f.name.trim());
+  } else if (state.modal === 'newCat') {
+    valid = f.name && f.name.trim().length > 0 && f.type && !state.data.categories.some(c => c.name === f.name.trim() && c.type === f.type);
+  }
+  btn.disabled = !valid;
+}
+
+function handleAction(action, key, id, trigger) {
+  switch (action) {
+    case 'set-view-cur':
+      state.data.viewCurrency = key;
+      saveData();
+      vibrate(8);
+      render();
+      break;
+
+    case 'tab':
+      vibrate(8);
+      state.view = key;
+      state.subView = null;
+      render();
+      break;
+
+    case 'open-acc-detail':
+      state.subView = { type: 'accountDetail', id };
+      vibrate(8);
+      render();
+      break;
+
+    case 'back-to-accounts':
+      state.subView = null;
+      vibrate(8);
+      render();
+      break;
+
+    case 'open-tx-detail': {
+      const tx = state.data.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.modal = 'txDetail';
+      state.modalCtx = tx;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'edit-tx': {
+      const tx = state.data.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.modal = 'newTx';
+      state.modalForm = {
+        editingId: tx.id,
+        type: tx.type === 'Opening' ? 'Income' : tx.type,  // Opening can't be edited as Opening, treat as Income
+        date: tx.date,
+        amount: String(Math.abs(tx.amount)),
+        accountId: tx.accountId,
+        categoryId: tx.categoryId || '',
+        toAccountId: tx.toAccountId || '',
+        toAmount: tx.toAmount != null ? String(tx.toAmount) : '',
+        toAmountEdited: true,  // pre-existing value, don't auto-overwrite
+        note: tx.note || ''
+      };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'del-tx-from-detail': {
+      const tx = state.data.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.modal = 'confirmDelTx';
+      state.modalCtx = tx;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'del-acc-from-detail': {
+      const acc = state.data.accounts.find(a => a.id === id);
+      if (!acc) return;
+      if (accountHasTransactions(id)) {
+        // Offer archiving instead of forbidding
+        state.modal = 'confirmArchiveAcc';
+        state.modalCtx = acc;
+        vibrate(10);
+        render();
+        return;
+      }
+      state.modal = 'confirmDelAcc';
+      state.modalCtx = acc;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'stab':
+      state.settingsTab = key;
+      render();
+      break;
+
+    case 'open-new-tx':
+      if (state.data.accounts.length === 0) {
+        state.modal = 'infoBlocked';
+        state.modalCtx = 'Спочатку додай хоча б один рахунок у вкладці «Рахунки».';
+        render();
+        return;
+      }
+      if (state.data.categories.length === 0) {
+        state.modal = 'infoBlocked';
+        state.modalCtx = 'Спочатку додай хоча б одну категорію в Налаштуваннях.';
+        render();
+        return;
+      }
+      state.modal = 'newTx';
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, note: '' };
+      vibrate(10);
+      render();
+      break;
+
+    case 'open-new-tx-for-account':
+      if (state.data.categories.length === 0) {
+        state.modal = 'infoBlocked';
+        state.modalCtx = 'Спочатку додай хоча б одну категорію в Налаштуваннях.';
+        render();
+        return;
+      }
+      state.modal = 'newTx';
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, note: '' };
+      vibrate(10);
+      render();
+      break;
+
+    case 'open-new-cat-from-tx': {
+      // Stash current new-tx form, open new-cat with the same type, return after save
+      const f = state.modalForm;
+      state.pendingTx = { ...f };
+      state.modal = 'newCat';
+      state.modalForm = { name: '', type: f.type || 'Expense', color: nextAutoColor() };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'open-new-acc':
+      state.modal = 'newAcc';
+      state.modalForm = { name: '', currency: 'EUR', color: nextAutoColor(), openingBalance: '' };
+      vibrate(10);
+      render();
+      break;
+
+    case 'open-new-cat':
+      state.modal = 'newCat';
+      state.modalForm = { name: '', type: 'Expense', color: nextAutoColor() };
+      vibrate(10);
+      render();
+      break;
+
+    case 'tx-type':
+      state.modalForm.type = key;
+      // Reset fields that don't apply to the new type
+      if (key === 'Transfer') {
+        state.modalForm.categoryId = '';
+      } else {
+        state.modalForm.toAccountId = '';
+        state.modalForm.toAmount = '';
+        state.modalForm.categoryId = '';  // categories filtered by Income/Expense
+      }
+      render();
+      break;
+
+    case 'cat-type':
+      state.modalForm.type = key;
+      render();
+      break;
+
+    case 'pick-currency':
+      state.modalForm.currency = key;
+      render();
+      break;
+
+    case 'pick-color':
+      state.modalForm.color = key;
+      render();
+      break;
+
+    case 'save-tx': {
+      const f = state.modalForm;
+      const payload = {
+        date: f.date,
+        type: f.type,
+        amount: f.amount,
+        accountId: f.accountId,
+        categoryId: f.type === 'Transfer' ? null : f.categoryId,
+        note: f.note || '',
+        toAccountId: f.toAccountId,
+        toAmount: f.toAmount
+      };
+      if (f.editingId) {
+        updateTransaction(f.editingId, payload);
+      } else {
+        createTransaction(payload);
+      }
+      state.modal = null;
+      state.modalForm = {};
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'save-acc': {
+      const f = state.modalForm;
+      if (f.editingId) {
+        updateAccount(f.editingId, {
+          name: f.name,
+          color: f.color,
+          goalAmount: f.goalAmount,
+          goalDescription: f.goalDescription
+        });
+      } else {
+        createAccount({
+          name: f.name,
+          currency: f.currency || 'EUR',
+          color: f.color,
+          openingBalance: f.openingBalance,
+          goalAmount: f.goalAmount,
+          goalDescription: f.goalDescription
+        });
+      }
+      state.modal = null;
+      state.modalForm = {};
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'edit-acc': {
+      const acc = state.data.accounts.find(a => a.id === id);
+      if (!acc) return;
+      state.modal = 'newAcc';
+      state.modalForm = {
+        editingId: acc.id,
+        name: acc.name,
+        currency: acc.currency,
+        color: acc.color,
+        goalAmount: acc.goal ? String(acc.goal.amount) : '',
+        goalDescription: acc.goal ? acc.goal.description || '' : ''
+      };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'archive-acc-from-detail': {
+      archiveAccount(id);
+      state.modal = null;
+      state.subView = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+    }
+
+    case 'unarchive-acc': {
+      unarchiveAccount(id);
+      vibrate([10, 30, 10]);
+      render();
+      break;
+    }
+
+    case 'save-cat': {
+      const f = state.modalForm;
+      if (f.editingId) {
+        updateCategory(f.editingId, {
+          name: f.name,
+          type: f.type,
+          color: f.color
+        });
+        state.modal = null;
+        state.modalForm = {};
+        vibrate([10, 40, 30]);
+        render();
+        break;
+      }
+      const newCat = createCategory({
+        name: f.name,
+        type: f.type,
+        color: f.color
+      });
+      if (state.pendingTx) {
+        // Return to new-tx with the freshly created category selected
+        state.modal = 'newTx';
+        state.modalForm = { ...state.pendingTx, type: newCat.type, categoryId: newCat.id };
+        state.pendingTx = null;
+      } else {
+        state.modal = null;
+        state.modalForm = {};
+      }
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'edit-cat': {
+      const cat = state.data.categories.find(c => c.id === id);
+      if (!cat) return;
+      state.modal = 'newCat';
+      state.modalForm = {
+        editingId: cat.id,
+        name: cat.name,
+        type: cat.type,
+        color: cat.color
+      };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'archive-cat-confirmed': {
+      archiveCategory(id);
+      state.modal = null;
+      state.modalCtx = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+    }
+
+    case 'unarchive-cat': {
+      unarchiveCategory(id);
+      vibrate([10, 30, 10]);
+      render();
+      break;
+    }
+
+    case 'del-tx': {
+      const tx = state.data.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.modal = 'confirmDelTx';
+      state.modalCtx = tx;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'del-acc': {
+      const acc = state.data.accounts.find(a => a.id === id);
+      if (!acc) return;
+      if (accountHasTransactions(id)) {
+        state.modal = 'infoBlocked';
+        state.modalCtx = `Не можна видалити «${acc.name}» — на ньому є транзакції. Спочатку видали транзакції на вкладці «Список».`;
+        render();
+        return;
+      }
+      state.modal = 'confirmDelAcc';
+      state.modalCtx = acc;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'del-cat': {
+      const cat = state.data.categories.find(c => c.id === id);
+      if (!cat) return;
+      if (categoryHasTransactions(id)) {
+        state.modal = 'confirmArchiveCat';
+        state.modalCtx = cat;
+        vibrate(10);
+        render();
+        return;
+      }
+      state.modal = 'confirmDelCat';
+      state.modalCtx = cat;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'do-del-tx':
+      deleteTransaction(state.modalCtx.id);
+      state.modal = null;
+      state.modalCtx = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+
+    case 'do-del-acc':
+      deleteAccount(state.modalCtx.id);
+      state.modal = null;
+      state.modalCtx = null;
+      state.subView = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+
+    case 'do-del-cat':
+      deleteCategory(state.modalCtx.id);
+      state.modal = null;
+      state.modalCtx = null;
+      vibrate([20, 30, 20]);
+      render();
+      break;
+
+    case 'close-modal':
+      closeModalOrBack();
+      render();
+      break;
+  }
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+
+render();
+setupEvents();
+
+</script>
+</body>
+</html>
