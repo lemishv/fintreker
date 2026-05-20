@@ -713,6 +713,47 @@
   }
   .theme-picker button.active .ico { color: var(--accent); }
 
+  /* BACKUP REMINDER (top of transactions list) */
+  .backup-reminder {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .backup-reminder-msg {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 10px;
+  }
+  .backup-reminder-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .backup-reminder-actions button {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: opacity 0.15s;
+  }
+  .backup-reminder-actions .dismiss {
+    color: var(--text-3);
+  }
+  .backup-reminder-actions .now {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 500;
+  }
+
+  /* BACKUP STATUS line in settings */
+  .backup-status {
+    font-size: 12px;
+    padding: 8px 0;
+    margin-bottom: 6px;
+  }
+
   /* STATS */
   .stat-hint {
     padding: 10px 14px;
@@ -970,7 +1011,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.8.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1011,6 +1052,98 @@ const ICONS = {
   lightTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>',
   darkTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
 };
+
+function exportBackup() {
+  const today = todayISO();
+  const filename = `finance-backup-${today}.json`;
+  // Snapshot of everything in the same shape as in storage
+  const payload = {
+    appVersion: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: state.data
+  };
+  const json = JSON.stringify(payload, null, 2);
+
+  // Try Web Share API first (gives Telegram/Drive/etc. picker on mobile)
+  try {
+    if (navigator.canShare && typeof File !== 'undefined') {
+      const file = new File([json], filename, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({
+          files: [file],
+          title: 'Бекап Фінансів',
+          text: `Бекап на ${today}`
+        }).then(() => {
+          // Mark backup as done on successful share
+          state.data.lastBackupAt = new Date().toISOString();
+          saveData();
+          render();
+        }).catch(err => {
+          // User cancelled share — fall back to download
+          if (err && err.name === 'AbortError') return;
+          downloadFile(filename, json);
+          state.data.lastBackupAt = new Date().toISOString();
+          saveData();
+          render();
+        });
+        return;
+      }
+    }
+  } catch (e) {
+    // Fall through to plain download
+  }
+
+  // Fallback: regular download
+  downloadFile(filename, json);
+  state.data.lastBackupAt = new Date().toISOString();
+  saveData();
+  render();
+}
+
+function importBackup(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Accept either {data: {...}} (new format) or raw state (manual edits)
+      const newData = parsed.data || parsed;
+      if (!newData || !Array.isArray(newData.accounts) || !Array.isArray(newData.transactions)) {
+        state.modal = 'infoBlocked';
+        state.modalCtx = 'Файл не схожий на бекап Фінансів. Перевір, що це правильний JSON-файл, експортований з цієї апки.';
+        render();
+        return;
+      }
+      // Run through migrate to ensure all fields exist on older backups
+      state.data = migrate(newData);
+      saveData();
+      applyTheme();
+      state.view = 'transactions';
+      state.subView = null;
+      state.modal = 'infoRestored';
+      state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій.`;
+      vibrate([10, 40, 30]);
+      render();
+    } catch (err) {
+      state.modal = 'infoBlocked';
+      state.modalCtx = 'Не вдалося прочитати файл як JSON. Можливо, файл пошкоджений.';
+      render();
+    }
+  };
+  reader.onerror = () => {
+    state.modal = 'infoBlocked';
+    state.modalCtx = 'Помилка читання файлу.';
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function daysSinceLastBackup() {
+  const last = state.data.lastBackupAt;
+  if (!last) return null;
+  const lastDate = new Date(last);
+  const now = new Date();
+  return Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+}
 
 function exportCsv() {
   // Build three CSV files. Use ; separator for Google Sheets/Excel friendliness with EU locale.
@@ -1091,6 +1224,73 @@ function downloadFile(filename, content) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function setupSwipe() {
+  const TAB_ORDER = ['transactions', 'accounts', 'stats', 'settings'];
+  // Minimum horizontal distance (px) to count as a swipe
+  const MIN_DISTANCE = 60;
+  // Maximum vertical drift (px) — bigger means it's a scroll, not a swipe
+  const MAX_VERTICAL = 60;
+  // Edge-swipe-back: must start within this many px from left edge
+  const EDGE_WIDTH = 30;
+
+  let startX = 0, startY = 0, startT = 0, startedAtEdge = false, tracking = false;
+
+  document.addEventListener('touchstart', (e) => {
+    // Don't intercept if a modal is open — modals have their own scroll context
+    if (state.modal) { tracking = false; return; }
+    // Don't intercept inside scrollable horizontal elements (none currently, but safe)
+    if (e.target.closest('select, input, textarea, button')) { tracking = false; return; }
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    startT = Date.now();
+    startedAtEdge = startX < EDGE_WIDTH;
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    if (state.modal) return;
+
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const dt = Date.now() - startT;
+
+    // Must be primarily horizontal
+    if (Math.abs(dx) < MIN_DISTANCE) return;
+    if (Math.abs(dy) > MAX_VERTICAL) return;
+    // Too slow — treat as drag, not swipe
+    if (dt > 600) return;
+
+    // Edge-swipe-from-left = back gesture (works in account detail)
+    if (dx > 0 && startedAtEdge && state.subView) {
+      state.subView = null;
+      vibrate(8);
+      render();
+      return;
+    }
+
+    // Tab swipe: only when at top level (no subView, no modal)
+    if (state.subView) return;
+    const idx = TAB_ORDER.indexOf(state.view);
+    if (idx < 0) return;
+
+    if (dx < 0 && idx < TAB_ORDER.length - 1) {
+      // Swipe left → next tab
+      state.view = TAB_ORDER[idx + 1];
+      vibrate(8);
+      render();
+    } else if (dx > 0 && idx > 0) {
+      // Swipe right → previous tab
+      state.view = TAB_ORDER[idx - 1];
+      vibrate(8);
+      render();
+    }
+  }, { passive: true });
 }
 
 function setupManifest() {
@@ -1180,6 +1380,8 @@ function migrate(d) {
   if (!d.transactions) d.transactions = [];
   if (!d.events) d.events = [];
   if (!d.budgets) d.budgets = [];
+  if (d.lastBackupAt === undefined) d.lastBackupAt = null;
+  if (d.backupReminderHiddenUntil === undefined) d.backupReminderHiddenUntil = null;
   // Backfill on legacy accounts/transactions
   for (const a of d.accounts) {
     if (!a.currency) a.currency = 'EUR';
@@ -1700,14 +1902,46 @@ function renderView() {
   return '';
 }
 
+function renderBackupReminder() {
+  // Don't show if there's no data worth backing up
+  if (state.data.transactions.length === 0 && state.data.accounts.length === 0) return '';
+
+  // Don't show if hidden until tomorrow
+  const hiddenUntil = state.data.backupReminderHiddenUntil;
+  if (hiddenUntil && new Date(hiddenUntil) > new Date()) return '';
+
+  const days = daysSinceLastBackup();
+  let message;
+  if (days === null) {
+    message = 'Ти ще не робив бекап. Зроби зараз — це 5 секунд.';
+  } else if (days >= 7) {
+    message = `Минув ${days === 7 ? 'тиждень' : days + ' днів'} від останнього бекапу.`;
+  } else {
+    return '';  // Less than 7 days — no reminder
+  }
+
+  return `
+    <div class="backup-reminder">
+      <div class="backup-reminder-msg">${message}</div>
+      <div class="backup-reminder-actions">
+        <button data-action="dismiss-backup-reminder" class="dismiss">Пізніше</button>
+        <button data-action="export-backup" class="now">Зберегти →</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderTransactions() {
   const txs = [...state.data.transactions].sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.createdAt.localeCompare(a.createdAt);
   });
 
+  // Backup reminder: show if >7 days since last backup and user hasn't dismissed today
+  const reminderHtml = renderBackupReminder();
+
   if (txs.length === 0) {
-    return `
+    return reminderHtml + `
       <div class="empty">
         <div class="title">Порожньо</div>
         <div class="hint">${state.data.accounts.length === 0
@@ -1723,7 +1957,7 @@ function renderTransactions() {
     groups[t.date].push(t);
   }
 
-  let html = '';
+  let html = reminderHtml;
   for (const [date, list] of Object.entries(groups)) {
     html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
     for (const t of list) {
@@ -2309,15 +2543,35 @@ function renderAboutSettings() {
     </section>
 
     <section>
-      <div class="section-head">Дані</div>
+      <div class="section-head">Бекап</div>
+      <div class="backup-status">
+        ${(() => {
+          const days = daysSinceLastBackup();
+          if (days === null) return `<span class="muted">Бекап ще не робився.</span>`;
+          if (days === 0) return `<span style="color: var(--income)">Останній бекап — сьогодні.</span>`;
+          if (days === 1) return `<span class="muted">Останній бекап — вчора.</span>`;
+          if (days < 7) return `<span class="muted">Останній бекап — ${days} днів тому.</span>`;
+          return `<span style="color: var(--expense)">Останній бекап — ${days} днів тому.</span>`;
+        })()}
+      </div>
+      <button class="add-btn" data-action="export-backup" style="border-color: var(--accent); color: var(--accent);">⇪ Зберегти бекап</button>
+      <button class="add-btn" data-action="import-backup-pick">⇩ Відновити з бекапу</button>
+      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
+      <div style="font-size: 11px; color: var(--text-3); margin-top: 10px; line-height: 1.5;">
+        Бекап — це один JSON-файл з усіма даними. Збережи його в Telegram (Saved Messages) або Google Drive — і дані переживуть будь-яке очищення Chrome чи зміну телефону.
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">Звіт</div>
       <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
-      <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Завантажить три файли — транзакції, рахунки, категорії — для бекапу або імпорту в Google Sheets.</div>
+      <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Три файли для аналізу в Google Sheets. Не використовується для відновлення.</div>
     </section>
 
     <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
       <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
       <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
-      <p style="margin-bottom: 12px;">v1.6.1: статистика надходжень/витрат всередині кожного рахунку (місяць + весь час). Виправлено застосування світлої теми після оновлення SW.</p>
+      <p style="margin-bottom: 12px;">v1.8.0: свайп для перемикання табів. Свайп вправо від лівого краю — повернутись з деталей рахунку.</p>
       <p style="margin-bottom: 18px;">Деплой: два файли — index.html і sw.js — обидва в корінь репо.</p>
 
       <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
@@ -2378,9 +2632,63 @@ function renderModal() {
     case 'confirmArchiveAcc': return renderConfirmArchiveAcc();
     case 'confirmArchiveCat': return renderConfirmArchiveCat();
     case 'confirmArchiveEvent': return renderConfirmArchiveEvent();
+    case 'confirmImport': return renderConfirmImport();
+    case 'infoRestored':  return renderInfoRestored();
     case 'infoBlocked':   return renderBlocked();
   }
   return '';
+}
+
+function renderConfirmImport() {
+  const file = state.modalCtx;
+  if (!file) return '';
+  const accs = state.data.accounts.length;
+  const txs = state.data.transactions.length;
+  const hasData = accs > 0 || txs > 0;
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Відновити з бекапу?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="font-size: 13px; color: var(--text-2); margin-bottom: 12px; line-height: 1.5;">
+            Файл: <strong style="color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px;">${escapeHtml(file.name)}</strong>
+          </div>
+          ${hasData ? `
+            <div class="banner" style="background: var(--danger-dim); border-color: var(--danger);">
+              ⚠ Поточні дані будуть стерті і замінені даними з бекапу.<br>
+              Зараз у тебе: ${accs} рахунків, ${txs} транзакцій.
+            </div>
+          ` : `
+            <div style="font-size: 13px; color: var(--text-2); line-height: 1.5;">
+              Зараз апка пуста — нічого не втратиш.
+            </div>
+          `}
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn ${hasData ? 'danger' : 'primary'}" data-action="do-import-backup">Відновити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderInfoRestored() {
+  const msg = state.modalCtx || 'Бекап відновлено.';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Готово</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          <div style="font-size: 14px; color: var(--text); line-height: 1.5;">${escapeHtml(msg)}</div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn primary" data-action="close-modal">Чудово</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderNewEventModal() {
@@ -3189,6 +3497,15 @@ function setupEvents() {
     }
   });
 
+  // File input change — for backup restore. Listen on document because the input
+  // is rendered inside Settings and may be replaced on re-renders.
+  document.addEventListener('change', (e) => {
+    if (e.target.id === 'backup-file-input' && e.target.files && e.target.files[0]) {
+      state.pendingImportFile = e.target.files[0];
+      handleAction('confirm-import-backup');
+    }
+  });
+
   // Blur on rate inputs — save the new rate when user finishes editing.
   app.addEventListener('blur', (e) => {
     if (e.target.dataset && e.target.dataset.form && e.target.dataset.form.startsWith('rate_')) {
@@ -3560,6 +3877,51 @@ function handleAction(action, key, id, trigger) {
       vibrate([10, 30, 10]);
       break;
 
+    case 'export-backup':
+      exportBackup();
+      vibrate([10, 30, 10]);
+      break;
+
+    case 'import-backup-pick': {
+      const input = document.getElementById('backup-file-input');
+      if (input) {
+        input.value = '';  // reset so same file can be re-picked
+        input.click();
+      }
+      break;
+    }
+
+    case 'confirm-import-backup': {
+      // Triggered after file selected — show confirmation
+      const file = state.pendingImportFile;
+      if (!file) return;
+      state.modal = 'confirmImport';
+      state.modalCtx = file;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'do-import-backup': {
+      const file = state.pendingImportFile;
+      if (!file) return;
+      state.modal = null;
+      state.modalCtx = null;
+      importBackup(file);
+      state.pendingImportFile = null;
+      break;
+    }
+
+    case 'dismiss-backup-reminder': {
+      // Hide reminder for 24h
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      state.data.backupReminderHiddenUntil = tomorrow.toISOString();
+      saveData();
+      render();
+      break;
+    }
+
     case 'set-theme':
       state.data.theme = key;
       saveData();
@@ -3722,6 +4084,7 @@ setupServiceWorker();
 applyTheme();
 render();
 setupEvents();
+setupSwipe();
 
 // React to system theme changes if user is on 'system' mode
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {

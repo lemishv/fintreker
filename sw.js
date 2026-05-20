@@ -2,7 +2,7 @@
 // Strategy: cache-first with background refresh.
 // Updates: bump VERSION below to force a new cache on next deploy.
 
-const VERSION = '1.6.1';
+const VERSION = '1.8.0';
 const CACHE = 'finance-' + VERSION;
 
 // Pre-cache the app shell on install.
