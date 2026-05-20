@@ -537,6 +537,47 @@
     color: var(--text-3);
   }
 
+  /* ACC STATS (in account detail) */
+  .acc-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .acc-stats-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .acc-stats-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .acc-stats-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+    gap: 6px;
+  }
+  .acc-stats-row .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+  }
+  .acc-stats-row .val {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
   /* TX PREVIEW (inside modal) */
   .tx-preview-amount {
     font-family: 'Fraunces', serif;
@@ -929,7 +970,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1846,6 +1887,44 @@ function renderAccountDetail() {
 
   const bal = getAccountBalance(acc.id);
 
+  // Current month income/expense totals for this account (in account's own currency)
+  const cm = todayISO().slice(0, 7);
+  let monthInc = 0, monthExp = 0;
+  for (const t of state.data.transactions) {
+    if (monthKey(t.date) !== cm) continue;
+    // Money coming INTO this account
+    if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
+      monthInc += t.amount;
+    }
+    if (t.type === 'Transfer' && t.toAccountId === acc.id) {
+      monthInc += (t.toAmount != null ? t.toAmount : t.amount);
+    }
+    // Money going OUT of this account
+    if (t.accountId === acc.id && t.type === 'Expense') {
+      monthExp += t.amount;
+    }
+    if (t.type === 'Transfer' && t.accountId === acc.id) {
+      monthExp += t.amount;
+    }
+  }
+
+  // All-time income/expense totals for this account
+  let totalInc = 0, totalExp = 0;
+  for (const t of state.data.transactions) {
+    if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
+      totalInc += t.amount;
+    }
+    if (t.type === 'Transfer' && t.toAccountId === acc.id) {
+      totalInc += (t.toAmount != null ? t.toAmount : t.amount);
+    }
+    if (t.accountId === acc.id && t.type === 'Expense') {
+      totalExp += t.amount;
+    }
+    if (t.type === 'Transfer' && t.accountId === acc.id) {
+      totalExp += t.amount;
+    }
+  }
+
   let html = `
     <div class="detail-head">
       <button class="back" data-action="back-to-accounts">‹ Назад</button>
@@ -1865,6 +1944,32 @@ function renderAccountDetail() {
       <div class="detail-balance num" style="color:${bal < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(bal, false, acc.currency)}</div>
       <div class="detail-cur">${acc.currency}</div>
     </div>
+
+    <div class="acc-stats">
+      <div class="acc-stats-block">
+        <div class="acc-stats-head">${fmtMonthLabel(cm)}</div>
+        <div class="acc-stats-row">
+          <span class="lbl">Надходження</span>
+          <span class="val num" style="color: var(--income)">+${fmtMoney(monthInc, false, acc.currency).replace('−','').replace('+','')}</span>
+        </div>
+        <div class="acc-stats-row">
+          <span class="lbl">Витрати</span>
+          <span class="val num" style="color: var(--expense)">−${fmtMoney(monthExp, false, acc.currency).replace('−','').replace('+','')}</span>
+        </div>
+      </div>
+      <div class="acc-stats-block">
+        <div class="acc-stats-head">За весь час</div>
+        <div class="acc-stats-row">
+          <span class="lbl">Надходження</span>
+          <span class="val num" style="color: var(--income)">+${fmtMoney(totalInc, false, acc.currency).replace('−','').replace('+','')}</span>
+        </div>
+        <div class="acc-stats-row">
+          <span class="lbl">Витрати</span>
+          <span class="val num" style="color: var(--expense)">−${fmtMoney(totalExp, false, acc.currency).replace('−','').replace('+','')}</span>
+        </div>
+      </div>
+    </div>
+
     <section>
       <div class="section-head">Транзакції · ${txs.length}</div>
   `;
@@ -2212,7 +2317,7 @@ function renderAboutSettings() {
     <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
       <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
       <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
-      <p style="margin-bottom: 12px;">v1.6.0: PWA-маніфест через JS Blob (надійна іконка на головному екрані), Service Worker для офлайну. Працює без зв'язку після першого запуску.</p>
+      <p style="margin-bottom: 12px;">v1.6.1: статистика надходжень/витрат всередині кожного рахунку (місяць + весь час). Виправлено застосування світлої теми після оновлення SW.</p>
       <p style="margin-bottom: 18px;">Деплой: два файли — index.html і sw.js — обидва в корінь репо.</p>
 
       <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
