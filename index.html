@@ -862,6 +862,81 @@
   .upcoming-row .muted { color: var(--text-2); font-size: 14px; }
   .upcoming-row .amount.upcoming { color: var(--text-2); font-style: italic; font-size: 15px; }
 
+  /* RECURRING */
+
+  /* Button: "Зробити повторюваною" inside tx detail */
+  .recurring-btn {
+    width: 100%;
+    padding: 11px 14px;
+    margin-top: 14px;
+    background: transparent;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s;
+  }
+  .recurring-btn:active { background: var(--accent-dim); }
+
+  /* Pill on a tx tied to a rule */
+  .recurring-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    margin-top: 14px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 12px;
+    gap: 8px;
+    transition: opacity 0.15s;
+  }
+  .recurring-pill > span:first-of-type { flex: 1; text-align: left; }
+  .recurring-pill .recurring-pill-edit {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+  }
+  .recurring-pill:active { opacity: 0.75; }
+
+  /* Toggle button with accent variant (used in "set frequency") */
+  .toggle button.active.accent-on {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  /* Rule summary block (in edit/del confirmation) */
+  .rule-summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .rule-name {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .rule-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .rule-meta {
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
   /* STATS */
   .stat-hint {
     padding: 10px 14px;
@@ -1119,7 +1194,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.11.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1160,7 +1235,8 @@ const ICONS = {
   lightTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>',
   darkTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
   clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><polyline points="20 6 9 17 4 12"/></svg>'
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><polyline points="20 6 9 17 4 12"/></svg>',
+  repeat: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
 };
 
 function exportBackup() {
@@ -1474,7 +1550,8 @@ function defaultData() {
     fxRates: { EUR: 1, UAH: 0.022, USD: 0.92, GBP: 1.17 },
     transactions: [],
     events: [],
-    budgets: []
+    budgets: [],
+    recurringRules: []
   };
 }
 
@@ -1490,6 +1567,7 @@ function migrate(d) {
   if (!d.transactions) d.transactions = [];
   if (!d.events) d.events = [];
   if (!d.budgets) d.budgets = [];
+  if (!d.recurringRules) d.recurringRules = [];
   if (d.lastBackupAt === undefined) d.lastBackupAt = null;
   if (d.backupReminderHiddenUntil === undefined) d.backupReminderHiddenUntil = null;
   // Backfill on legacy accounts/transactions
@@ -1500,6 +1578,7 @@ function migrate(d) {
   for (const t of d.transactions) {
     if (!t.currency) t.currency = 'EUR';
     if (t.scheduledFor === undefined) t.scheduledFor = null;
+    if (t.recurringRuleId === undefined) t.recurringRuleId = null;
   }
   // Always ensure EUR rate = 1
   d.fxRates.EUR = 1;
@@ -1590,6 +1669,150 @@ function nextAutoColor() {
 function isScheduled(t) {
   return t && t.scheduledFor != null;
 }
+
+function isoToDate(iso) {
+  // YYYY-MM-DD → Date at local midnight
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dateToIso(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function daysInMonth(year, month) {
+  // month is 0-indexed
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/**
+ * Compute the next occurrence date for a recurring rule, strictly AFTER `fromIso`.
+ * Returns ISO string YYYY-MM-DD or null if past end date.
+ */
+function computeNextDate(rule, fromIso) {
+  const from = isoToDate(fromIso);
+  let next;
+
+  if (rule.frequency === 'weekly') {
+    next = new Date(from);
+    next.setDate(next.getDate() + 1);
+    while (next.getDay() !== rule.dayOfWeek) {
+      next.setDate(next.getDate() + 1);
+    }
+  } else if (rule.frequency === 'monthly') {
+    next = new Date(from);
+    next.setDate(1);
+    next.setMonth(next.getMonth() + 1);
+    // Clamp day to last day of month if needed
+    const target = Math.min(rule.dayOfMonth, daysInMonth(next.getFullYear(), next.getMonth()));
+    next.setDate(target);
+    // If somehow that's still <= from (edge case), bump another month
+    if (next <= from) {
+      next.setMonth(next.getMonth() + 1);
+      next.setDate(Math.min(rule.dayOfMonth, daysInMonth(next.getFullYear(), next.getMonth())));
+    }
+  } else if (rule.frequency === 'yearly') {
+    next = new Date(from.getFullYear(), rule.monthOfYear - 1, 1);
+    const target = Math.min(rule.dayOfMonth, daysInMonth(next.getFullYear(), next.getMonth()));
+    next.setDate(target);
+    if (next <= from) {
+      next = new Date(from.getFullYear() + 1, rule.monthOfYear - 1, 1);
+      next.setDate(Math.min(rule.dayOfMonth, daysInMonth(next.getFullYear(), next.getMonth())));
+    }
+  } else {
+    return null;
+  }
+
+  // Check end date
+  if (rule.endDate && dateToIso(next) > rule.endDate) return null;
+
+  return dateToIso(next);
+}
+
+/**
+ * Walk active rules and ensure each has exactly one upcoming scheduled transaction.
+ * Called on app start and after rule changes.
+ */
+function generateScheduledForRules() {
+  const today = todayISO();
+  let createdAny = false;
+
+  for (const rule of state.data.recurringRules) {
+    if (rule.paused) continue;
+    if (rule.endDate && rule.endDate < today) continue;
+
+    // Find existing scheduled tx for this rule
+    const existing = state.data.transactions.find(t =>
+      t.recurringRuleId === rule.id && isScheduled(t)
+    );
+    if (existing) continue;  // Already has one upcoming; skip
+
+    // Anchor: latest tx (scheduled or confirmed) from this rule, or rule.startDate as fallback
+    const allFromRule = state.data.transactions
+      .filter(t => t.recurringRuleId === rule.id)
+      .sort((a, b) => {
+        const da = isScheduled(a) ? a.scheduledFor : a.date;
+        const db = isScheduled(b) ? b.scheduledFor : b.date;
+        return db.localeCompare(da);
+      });
+    const lastDate = allFromRule.length > 0
+      ? (isScheduled(allFromRule[0]) ? allFromRule[0].scheduledFor : allFromRule[0].date)
+      : rule.startDate;
+
+    const nextDate = computeNextDate(rule, lastDate);
+    if (!nextDate) continue;  // Past end date
+
+    // Create the scheduled tx as a snapshot of the rule
+    const now = new Date().toISOString();
+    const acc = findAccount(rule.accountId);
+    const fromCur = acc ? acc.currency : 'EUR';
+
+    if (rule.type === 'Transfer') {
+      state.data.transactions.push({
+        id: uid(),
+        date: nextDate,
+        type: 'Transfer',
+        amount: rule.amount,
+        currency: fromCur,
+        accountId: rule.accountId,
+        categoryId: null,
+        toAccountId: rule.toAccountId,
+        toAmount: rule.toAmount,
+        toCurrency: rule.toCurrency,
+        eventId: null,
+        scheduledFor: nextDate,
+        recurringRuleId: rule.id,
+        note: rule.note || '',
+        createdAt: now,
+        updatedAt: now
+      });
+    } else {
+      state.data.transactions.push({
+        id: uid(),
+        date: nextDate,
+        type: rule.type,
+        amount: rule.amount,
+        currency: fromCur,
+        accountId: rule.accountId,
+        categoryId: rule.categoryId,
+        toAccountId: null,
+        toAmount: null,
+        toCurrency: null,
+        eventId: null,
+        scheduledFor: nextDate,
+        recurringRuleId: rule.id,
+        note: rule.note || '',
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+    createdAny = true;
+  }
+
+  if (createdAny) saveData();
+}
+
+function findRule(id) { return state.data.recurringRules.find(r => r.id === id); }
 
 function getAccountBalance(accountId) {
   let bal = 0;
@@ -1959,6 +2182,82 @@ function confirmScheduledTransaction(id) {
   tx.scheduledFor = null;
   tx.updatedAt = new Date().toISOString();
   saveData();
+  // After confirming a recurring one, generate the next occurrence
+  if (tx.recurringRuleId) generateScheduledForRules();
+}
+
+function createRuleFromTransaction(txId, { frequency, endDate }) {
+  const tx = state.data.transactions.find(t => t.id === txId);
+  if (!tx) return null;
+
+  const refDate = isoToDate(tx.date);
+  const now = new Date().toISOString();
+  const rule = {
+    id: uid(),
+    type: tx.type,
+    amount: tx.amount,
+    accountId: tx.accountId,
+    categoryId: tx.categoryId,
+    toAccountId: tx.toAccountId || null,
+    toAmount: tx.toAmount != null ? tx.toAmount : null,
+    toCurrency: tx.toCurrency || null,
+    note: tx.note || '',
+    frequency,
+    dayOfWeek: refDate.getDay(),
+    dayOfMonth: refDate.getDate(),
+    monthOfYear: refDate.getMonth() + 1,
+    startDate: tx.date,
+    endDate: endDate || null,
+    paused: false,
+    createdAt: now,
+    updatedAt: now
+  };
+  state.data.recurringRules.push(rule);
+  // Link the source transaction to the rule so we don't generate a duplicate for the same date
+  tx.recurringRuleId = rule.id;
+  saveData();
+  generateScheduledForRules();
+  return rule;
+}
+
+function updateRule(id, patch) {
+  const rule = state.data.recurringRules.find(r => r.id === id);
+  if (!rule) return;
+  Object.assign(rule, patch);
+  rule.updatedAt = new Date().toISOString();
+  saveData();
+  // Re-evaluate — if amount or schedule changed, the existing upcoming may need updating.
+  // Simple approach: delete any unconfirmed scheduled tx tied to this rule, regenerate.
+  state.data.transactions = state.data.transactions.filter(t =>
+    !(t.recurringRuleId === id && isScheduled(t))
+  );
+  saveData();
+  generateScheduledForRules();
+}
+
+function deleteRule(id) {
+  state.data.recurringRules = state.data.recurringRules.filter(r => r.id !== id);
+  // Also remove pending scheduled tx from this rule
+  state.data.transactions = state.data.transactions.filter(t =>
+    !(t.recurringRuleId === id && isScheduled(t))
+  );
+  // Confirmed transactions keep their recurringRuleId as a historical marker — harmless
+  saveData();
+}
+
+function toggleRulePause(id) {
+  const rule = state.data.recurringRules.find(r => r.id === id);
+  if (!rule) return;
+  rule.paused = !rule.paused;
+  rule.updatedAt = new Date().toISOString();
+  // If pausing, remove the pending scheduled tx (so it doesn't sit there)
+  if (rule.paused) {
+    state.data.transactions = state.data.transactions.filter(t =>
+      !(t.recurringRuleId === id && isScheduled(t))
+    );
+  }
+  saveData();
+  if (!rule.paused) generateScheduledForRules();
 }
 
 /* ============================================================
@@ -2853,7 +3152,7 @@ function renderAboutSettings() {
     <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
       <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
       <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
-      <p style="margin-bottom: 12px;">v1.10.0: заплановані одноразові транзакції (частина 1 з 2). Постав «Запланувати» у формі — транзакція не вплине на баланс, поки не підтвердиш. У день дати з'явиться секція «До підтвердження» зверху списку.</p>
+      <p style="margin-bottom: 12px;">v1.11.0: повторювані транзакції (частина 2 з 2). У картці підтвердженої транзакції тапни «Зробити повторюваною» — обери щотижня / щомісяця / щороку. Апка автоматично створюватиме нові заплановані за розкладом.</p>
 
       <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
         <strong style="color: var(--text); display: block; margin-bottom: 6px;">Якщо щось працює дивно</strong>
@@ -2916,8 +3215,169 @@ function renderModal() {
     case 'confirmImport': return renderConfirmImport();
     case 'infoRestored':  return renderInfoRestored();
     case 'infoBlocked':   return renderBlocked();
+    case 'makeRecurring': return renderMakeRecurringModal();
+    case 'editRule':      return renderEditRuleModal();
+    case 'confirmDelRule': return renderConfirmDelRule();
   }
   return '';
+}
+
+function renderMakeRecurringModal() {
+  const f = state.modalForm;
+  const refDate = f.txDate ? isoToDate(f.txDate) : new Date();
+  const day = refDate.getDate();
+  const dayOfWeek = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][refDate.getDay()];
+  const month = MONTHS_FULL[refDate.getMonth()];
+
+  const valid = !!f.frequency;
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">Зробити повторюваною</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          <div style="font-size: 12px; color: var(--text-3); margin-bottom: 14px; line-height: 1.5;">
+            Будуть створюватись заплановані транзакції за розкладом. Кожну треба буде підтверджувати.
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Періодичність</span></div>
+            <div class="toggle toggle-3">
+              <button class="${f.frequency === 'weekly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="weekly">
+                <span style="font-size: 11px; font-weight: 500;">Щотижня</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">кожен ${dayOfWeek}</span>
+              </button>
+              <button class="${f.frequency === 'monthly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="monthly">
+                <span style="font-size: 11px; font-weight: 500;">Щомісяця</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">${day}-го числа</span>
+              </button>
+              <button class="${f.frequency === 'yearly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="yearly">
+                <span style="font-size: 11px; font-weight: 500;">Щороку</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">${day} ${month.slice(0, 3).toLowerCase()}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Дата завершення</span><span class="opt">опційно</span></div>
+            <input class="input" type="date" value="${escapeAttr(f.endDate || '')}" data-form="endDate">
+            <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Залиш порожнім — правило діятиме вічно</div>
+          </div>
+
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn primary" data-action="save-make-recurring" ${valid ? '' : 'disabled'}>Створити правило</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditRuleModal() {
+  const f = state.modalForm;
+  const rule = state.data.recurringRules.find(r => r.id === f.editingRuleId);
+  if (!rule) return '';
+  const refDate = isoToDate(rule.startDate);
+  const day = refDate.getDate();
+  const dayOfWeek = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][rule.dayOfWeek];
+  const month = MONTHS_FULL[rule.monthOfYear - 1];
+
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">Правило</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+
+          ${renderRuleSummary(rule)}
+
+          <div class="field" style="margin-top: 18px;">
+            <div class="field-label"><span class="lbl">Періодичність</span></div>
+            <div class="toggle toggle-3">
+              <button class="${f.frequency === 'weekly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="weekly">
+                <span style="font-size: 11px; font-weight: 500;">Щотижня</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">${dayOfWeek}</span>
+              </button>
+              <button class="${f.frequency === 'monthly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="monthly">
+                <span style="font-size: 11px; font-weight: 500;">Щомісяця</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">${rule.dayOfMonth}-го</span>
+              </button>
+              <button class="${f.frequency === 'yearly' ? 'active accent-on' : ''}" data-action="set-rule-freq" data-key="yearly">
+                <span style="font-size: 11px; font-weight: 500;">Щороку</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-top: 2px;">${rule.dayOfMonth} ${month.slice(0, 3).toLowerCase()}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span class="lbl">Дата завершення</span><span class="opt">опційно</span></div>
+            <input class="input" type="date" value="${escapeAttr(f.endDate || '')}" data-form="endDate">
+          </div>
+
+        </div>
+        <div class="sheet-foot foot-3">
+          <button class="btn ${rule.paused ? 'primary' : 'secondary'}" data-action="toggle-rule-pause" data-id="${rule.id}">${rule.paused ? 'Активувати' : 'Призупинити'}</button>
+          <button class="btn accent" data-action="save-rule-changes" data-id="${rule.id}">Зберегти</button>
+          <button class="btn danger" data-action="del-rule" data-id="${rule.id}">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRuleSummary(rule) {
+  const acc = findAccount(rule.accountId);
+  const cat = findCategory(rule.categoryId);
+  const toAcc = findAccount(rule.toAccountId);
+  const fromCur = acc ? acc.currency : 'EUR';
+  let label, amountHtml;
+  if (rule.type === 'Transfer') {
+    label = 'Переказ';
+    const toCur = rule.toCurrency || fromCur;
+    amountHtml = `${fmtMoney(rule.amount, false, fromCur)}${fromCur === toCur ? '' : ` → ${fmtMoney(rule.toAmount, false, toCur)}`}`;
+  } else {
+    label = cat ? cat.name : '—';
+    amountHtml = (rule.type === 'Income' ? '+' : '−') + fmtMoney(rule.amount, false, fromCur).replace('−','').replace('+','');
+  }
+  return `
+    <div class="rule-summary">
+      <div class="rule-name serif">${escapeHtml(label)}</div>
+      <div class="rule-amount num">${amountHtml}</div>
+      <div class="rule-meta">
+        ${acc ? escapeHtml(acc.name) : '—'}${rule.type === 'Transfer' && toAcc ? ' → ' + escapeHtml(toAcc.name) : ''}
+        ${rule.paused ? ' · <span style="color: var(--expense)">призупинено</span>' : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirmDelRule() {
+  const rule = state.modalCtx;
+  if (!rule) return '';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head"><span class="title">Видалити правило?</span><button class="close" data-action="close-modal">${ICONS.close}</button></div>
+        <div class="sheet-body">
+          ${renderRuleSummary(rule)}
+          <div style="font-size: 13px; color: var(--text-2); margin-top: 14px; line-height: 1.5;">
+            Заплановані транзакції від цього правила (які ще не підтверджені) теж видаляться. Існуючі підтверджені транзакції залишаться.
+          </div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn secondary" data-action="close-modal">Скасувати</button>
+          <button class="btn danger" data-action="do-del-rule" data-id="${rule.id}">Видалити</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderConfirmImport() {
@@ -3156,6 +3616,11 @@ function renderTxDetail() {
                 </div>
               ` : ''}
             </div>
+
+            ${(!isScheduled(t) && !t.recurringRuleId) ? `
+              <button class="recurring-btn" data-action="open-make-recurring" data-id="${t.id}">${ICONS.repeat} Зробити повторюваним</button>
+            ` : ''}
+            ${t.recurringRuleId ? renderRecurringRulePill(t.recurringRuleId) : ''}
           </div>
           <div class="sheet-foot foot-3">
             ${isScheduled(t) ? `
@@ -3220,6 +3685,11 @@ function renderTxDetail() {
               </div>
             ` : ''}
           </div>
+
+          ${(!isScheduled(t) && t.type !== 'Opening' && t.type !== 'Transfer' && !t.recurringRuleId) ? `
+            <button class="recurring-btn" data-action="open-make-recurring" data-id="${t.id}">${ICONS.repeat} Зробити повторюваною</button>
+          ` : ''}
+          ${t.recurringRuleId ? renderRecurringRulePill(t.recurringRuleId) : ''}
         </div>
         <div class="sheet-foot foot-3">
           ${isScheduled(t) ? `
@@ -3234,6 +3704,20 @@ function renderTxDetail() {
         </div>
       </div>
     </div>
+  `;
+}
+
+function renderRecurringRulePill(ruleId) {
+  const rule = findRule(ruleId);
+  if (!rule) return '';
+  const freqLabel = rule.frequency === 'weekly' ? 'Щотижня'
+    : rule.frequency === 'monthly' ? 'Щомісяця'
+    : 'Щороку';
+  return `
+    <button class="recurring-pill" data-action="open-rule" data-id="${rule.id}">
+      ${ICONS.repeat} <span>${freqLabel}${rule.paused ? ' · призупинено' : ''}</span>
+      <span class="recurring-pill-edit">Налаштувати</span>
+    </button>
   `;
 }
 
@@ -4009,6 +4493,106 @@ function handleAction(action, key, id, trigger) {
         state.modalCtx = null;
       }
       vibrate([20, 30, 20]);
+      // If this was a recurring scheduled tx, generate the next occurrence
+      // (so user always has one upcoming visible)
+      generateScheduledForRules();
+      render();
+      break;
+    }
+
+    case 'open-make-recurring': {
+      const tx = state.data.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.modal = 'makeRecurring';
+      state.modalForm = {
+        txId: tx.id,
+        txDate: tx.date,
+        frequency: 'monthly',
+        endDate: ''
+      };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'set-rule-freq':
+      state.modalForm.frequency = key;
+      vibrate(8);
+      render();
+      break;
+
+    case 'save-make-recurring': {
+      const f = state.modalForm;
+      createRuleFromTransaction(f.txId, {
+        frequency: f.frequency,
+        endDate: f.endDate || null
+      });
+      state.modal = null;
+      state.modalForm = {};
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'open-rule': {
+      const rule = findRule(id);
+      if (!rule) return;
+      state.modal = 'editRule';
+      state.modalForm = {
+        editingRuleId: rule.id,
+        frequency: rule.frequency,
+        endDate: rule.endDate || ''
+      };
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'save-rule-changes': {
+      const f = state.modalForm;
+      updateRule(f.editingRuleId, {
+        frequency: f.frequency,
+        endDate: f.endDate || null
+      });
+      state.modal = null;
+      state.modalForm = {};
+      vibrate([10, 40, 30]);
+      render();
+      break;
+    }
+
+    case 'toggle-rule-pause': {
+      toggleRulePause(id);
+      // Re-open the rule editor to show updated status
+      const rule = findRule(id);
+      if (rule) {
+        state.modalForm = {
+          editingRuleId: rule.id,
+          frequency: rule.frequency,
+          endDate: rule.endDate || ''
+        };
+      }
+      vibrate([10, 30, 10]);
+      render();
+      break;
+    }
+
+    case 'del-rule': {
+      const rule = findRule(id);
+      if (!rule) return;
+      state.modal = 'confirmDelRule';
+      state.modalCtx = rule;
+      vibrate(10);
+      render();
+      break;
+    }
+
+    case 'do-del-rule': {
+      deleteRule(id);
+      state.modal = null;
+      state.modalCtx = null;
+      state.modalForm = {};
+      vibrate([20, 30, 20]);
       render();
       break;
     }
@@ -4400,6 +4984,7 @@ function handleAction(action, key, id, trigger) {
 setupManifest();
 setupServiceWorker();
 applyTheme();
+generateScheduledForRules();
 render();
 setupEvents();
 setupSwipe();
