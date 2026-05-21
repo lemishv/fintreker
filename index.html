@@ -578,6 +578,28 @@
     font-weight: 500;
   }
 
+  /* Scheduled stats — slightly dimmed, separate row */
+  .acc-stats-scheduled {
+    margin-top: -10px;
+    margin-bottom: 22px;
+  }
+  .acc-stats-scheduled .acc-stats-head {
+    color: var(--accent);
+  }
+  .projected-balance {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .projected-note {
+    font-size: 10px;
+    color: var(--text-3);
+    margin-top: 4px;
+    font-style: italic;
+    line-height: 1.3;
+  }
+
   /* TX PREVIEW (inside modal) */
   .tx-preview-amount {
     font-family: 'Fraunces', serif;
@@ -753,6 +775,92 @@
     padding: 8px 0;
     margin-bottom: 6px;
   }
+
+  /* SCHEDULED TRANSACTIONS */
+
+  /* Toggle button in form: "Запланувати" */
+  .toggle-scheduled {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    padding: 3px 8px;
+    border: 1px solid var(--border-2);
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .toggle-scheduled.on {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .toggle-scheduled:active { background: var(--surface); }
+
+  /* Due section header (accent color) */
+  .section-head-accent {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .due-section { margin-bottom: 28px; }
+
+  /* Due row: tx info + confirm button */
+  .due-row {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 12px;
+    margin-bottom: 8px;
+  }
+  .due-row-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .due-row-info .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .due-row-info .body { flex: 1; min-width: 0; }
+  .due-row-info .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .due-row-info .name { font-size: 14.5px; font-weight: 500; }
+  .due-row-info .meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .due-row-info .meta.overdue { color: var(--expense); font-weight: 500; }
+  .confirm-btn {
+    display: block;
+    width: 100%;
+    padding: 9px 0;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .confirm-btn:active { transform: scale(0.97); }
+
+  /* Upcoming section (dimmed, future) */
+  .upcoming-section { margin-top: 28px; opacity: 0.85; }
+  .upcoming-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .upcoming-row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .upcoming-row .body { flex: 1; min-width: 0; }
+  .upcoming-row .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .upcoming-row .meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .upcoming-row .muted { color: var(--text-2); font-size: 14px; }
+  .upcoming-row .amount.upcoming { color: var(--text-2); font-style: italic; font-size: 15px; }
 
   /* STATS */
   .stat-hint {
@@ -1011,7 +1119,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.10.1';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1050,7 +1158,9 @@ const ICONS = {
   archive: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
   systemTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
   lightTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>',
-  darkTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+  darkTheme: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+  clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><polyline points="20 6 9 17 4 12"/></svg>'
 };
 
 function exportBackup() {
@@ -1387,7 +1497,10 @@ function migrate(d) {
     if (!a.currency) a.currency = 'EUR';
     if (a.goal === undefined) a.goal = null;
   }
-  for (const t of d.transactions) if (!t.currency) t.currency = 'EUR';
+  for (const t of d.transactions) {
+    if (!t.currency) t.currency = 'EUR';
+    if (t.scheduledFor === undefined) t.scheduledFor = null;
+  }
   // Always ensure EUR rate = 1
   d.fxRates.EUR = 1;
   return d;
@@ -1474,9 +1587,15 @@ function nextAutoColor() {
   return COLOR_PALETTE[used % COLOR_PALETTE.length];
 }
 
+function isScheduled(t) {
+  return t && t.scheduledFor != null;
+}
+
 function getAccountBalance(accountId) {
   let bal = 0;
   for (const t of state.data.transactions) {
+    // Scheduled transactions don't affect balance until confirmed
+    if (isScheduled(t)) continue;
     // Income/Expense/Opening affect the account they're on
     if (t.accountId === accountId) {
       if (t.type === 'Income' || t.type === 'Opening') bal += t.amount;
@@ -1730,7 +1849,7 @@ function eventHasTransactions(id) {
 
 function findEvent(id) { return state.data.events.find(e => e.id === id); }
 
-function createTransaction({ date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId }) {
+function createTransaction({ date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId, scheduledFor }) {
   const now = new Date().toISOString();
   const acc = findAccount(accountId);
   const fromCur = acc ? acc.currency : 'EUR';
@@ -1755,6 +1874,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       toAmount: toAmt,
       toCurrency: toCur,
       eventId: eventId || null,
+      scheduledFor: scheduledFor || null,
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
@@ -1772,6 +1892,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       toAmount: null,
       toCurrency: null,
       eventId: eventId || null,
+      scheduledFor: scheduledFor || null,
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
@@ -1780,7 +1901,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
   saveData();
 }
 
-function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId }) {
+function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId, scheduledFor }) {
   const tx = state.data.transactions.find(t => t.id === id);
   if (!tx) return;
   const now = new Date().toISOString();
@@ -1804,6 +1925,7 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
     tx.toAmount = toAmt;
     tx.toCurrency = toCur;
     tx.eventId = eventId || null;
+    tx.scheduledFor = scheduledFor || null;
     tx.note = (note || '').trim();
     tx.updatedAt = now;
   } else {
@@ -1817,6 +1939,7 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
     tx.toAmount = null;
     tx.toCurrency = null;
     tx.eventId = eventId || null;
+    tx.scheduledFor = scheduledFor || null;
     tx.note = (note || '').trim();
     tx.updatedAt = now;
   }
@@ -1825,6 +1948,16 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
 
 function deleteTransaction(id) {
   state.data.transactions = state.data.transactions.filter(t => t.id !== id);
+  saveData();
+}
+
+function confirmScheduledTransaction(id) {
+  const tx = state.data.transactions.find(t => t.id === id);
+  if (!tx || !isScheduled(tx)) return;
+  // Use the scheduled date as the actual date; mark as confirmed by clearing scheduledFor
+  tx.date = tx.scheduledFor;
+  tx.scheduledFor = null;
+  tx.updatedAt = new Date().toISOString();
   saveData();
 }
 
@@ -1932,16 +2065,24 @@ function renderBackupReminder() {
 }
 
 function renderTransactions() {
-  const txs = [...state.data.transactions].sort((a, b) => {
+  const today = todayISO();
+  const all = state.data.transactions;
+
+  // Split into three groups
+  const due = all.filter(t => isScheduled(t) && t.scheduledFor <= today);
+  const upcoming = all.filter(t => isScheduled(t) && t.scheduledFor > today);
+  const regular = all.filter(t => !isScheduled(t));
+
+  // Sort
+  due.sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));  // oldest first (most overdue at top)
+  upcoming.sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));  // soonest first
+  regular.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.createdAt.localeCompare(a.createdAt);
   });
 
-  // Backup reminder: show if >7 days since last backup and user hasn't dismissed today
-  const reminderHtml = renderBackupReminder();
-
-  if (txs.length === 0) {
-    return reminderHtml + `
+  if (all.length === 0) {
+    return `
       <div class="empty">
         <div class="title">Порожньо</div>
         <div class="hint">${state.data.accounts.length === 0
@@ -1950,33 +2091,98 @@ function renderTransactions() {
       </div>`;
   }
 
-  // Group by date
-  const groups = {};
-  for (const t of txs) {
-    if (!groups[t.date]) groups[t.date] = [];
-    groups[t.date].push(t);
+  let html = '';
+
+  // 1. DUE — needs confirmation
+  if (due.length > 0) {
+    html += `<section class="due-section">
+      <div class="section-head section-head-accent">До підтвердження · ${due.length}</div>
+    `;
+    for (const t of due) {
+      html += renderDueTransactionRow(t, today);
+    }
+    html += `</section>`;
   }
 
-  let html = reminderHtml;
-  for (const [date, list] of Object.entries(groups)) {
-    html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
-    for (const t of list) {
-      const info = describeTransaction(t);
-      html += `
-        <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
-          <span class="dot" style="background:${info.dotColor}"></span>
-          <div class="body">
-            <div class="top">
-              <span class="name">${escapeHtml(info.label)}</span>
-              ${info.amountHtml}
+  // 2. REGULAR — main list grouped by date
+  if (regular.length > 0) {
+    const groups = {};
+    for (const t of regular) {
+      if (!groups[t.date]) groups[t.date] = [];
+      groups[t.date].push(t);
+    }
+    for (const [date, list] of Object.entries(groups)) {
+      html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
+      for (const t of list) {
+        const info = describeTransaction(t);
+        html += `
+          <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
+            <span class="dot" style="background:${info.dotColor}"></span>
+            <div class="body">
+              <div class="top">
+                <span class="name">${escapeHtml(info.label)}</span>
+                ${info.amountHtml}
+              </div>
+              ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
             </div>
-            ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
           </div>
-        </div>
-      `;
+        `;
+      }
     }
   }
+
+  // 3. UPCOMING — future scheduled
+  if (upcoming.length > 0) {
+    html += `<section class="upcoming-section">
+      <div class="section-head">Заплановані · ${upcoming.length}</div>
+    `;
+    for (const t of upcoming) {
+      html += renderUpcomingTransactionRow(t);
+    }
+    html += `</section>`;
+  }
+
   return html;
+}
+
+function renderDueTransactionRow(t, today) {
+  const info = describeTransaction(t);
+  const isOverdue = t.scheduledFor < today;
+  const dateLabel = t.scheduledFor === today ? 'Сьогодні'
+    : isOverdue ? `Прострочено · ${fmtDateLabel(t.scheduledFor)}`
+    : fmtDateLabel(t.scheduledFor);
+
+  return `
+    <div class="due-row">
+      <div class="due-row-info" data-action="open-tx-detail" data-id="${t.id}">
+        <span class="dot" style="background:${info.dotColor}"></span>
+        <div class="body">
+          <div class="top">
+            <span class="name">${escapeHtml(info.label)}</span>
+            ${info.amountHtml}
+          </div>
+          <div class="meta ${isOverdue ? 'overdue' : ''}">${dateLabel}${info.metaHtml ? ' · ' + info.metaHtml : ''}</div>
+        </div>
+      </div>
+      <button class="confirm-btn" data-action="confirm-scheduled" data-id="${t.id}">${ICONS.check} Підтвердити</button>
+    </div>
+  `;
+}
+
+function renderUpcomingTransactionRow(t) {
+  const info = describeTransaction(t);
+  return `
+    <div class="upcoming-row" data-action="open-tx-detail" data-id="${t.id}">
+      <span class="dot" style="background:${info.dotColor}; opacity: 0.5"></span>
+      <div class="body">
+        <div class="top">
+          <span class="name muted">${escapeHtml(info.label)}</span>
+          <span class="upcoming-amount num">${info.amountHtml.replace(/class="amount [^"]+/, 'class="amount upcoming')}</span>
+        </div>
+        <div class="meta">${fmtDateLabel(t.scheduledFor)}${info.metaHtml ? ' · ' + info.metaHtml : ''}</div>
+      </div>
+    </div>
+  `;
 }
 
 function renderAccounts() {
@@ -2112,8 +2318,15 @@ function renderAccountDetail() {
     return renderAccounts();
   }
 
-  const txs = state.data.transactions
-    .filter(t => t.accountId === acc.id || (t.type === 'Transfer' && t.toAccountId === acc.id))
+  const today = todayISO();
+  const allForAcc = state.data.transactions
+    .filter(t => t.accountId === acc.id || (t.type === 'Transfer' && t.toAccountId === acc.id));
+
+  const accDue = allForAcc.filter(t => isScheduled(t) && t.scheduledFor <= today)
+    .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
+  const accUpcoming = allForAcc.filter(t => isScheduled(t) && t.scheduledFor > today)
+    .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
+  const accRegular = allForAcc.filter(t => !isScheduled(t))
     .sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return b.createdAt.localeCompare(a.createdAt);
@@ -2121,10 +2334,12 @@ function renderAccountDetail() {
 
   const bal = getAccountBalance(acc.id);
 
-  // Current month income/expense totals for this account (in account's own currency)
+  // Current month income/expense totals for this account (in account's own currency).
+  // Ignores scheduled transactions (they have scheduledFor set).
   const cm = todayISO().slice(0, 7);
   let monthInc = 0, monthExp = 0;
   for (const t of state.data.transactions) {
+    if (isScheduled(t)) continue;
     if (monthKey(t.date) !== cm) continue;
     // Money coming INTO this account
     if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
@@ -2142,9 +2357,10 @@ function renderAccountDetail() {
     }
   }
 
-  // All-time income/expense totals for this account
+  // All-time income/expense totals for this account (also ignoring scheduled)
   let totalInc = 0, totalExp = 0;
   for (const t of state.data.transactions) {
+    if (isScheduled(t)) continue;
     if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
       totalInc += t.amount;
     }
@@ -2158,6 +2374,27 @@ function renderAccountDetail() {
       totalExp += t.amount;
     }
   }
+
+  // Scheduled (pending) totals — what's coming in/out if everything gets confirmed
+  let schedInc = 0, schedExp = 0;
+  for (const t of state.data.transactions) {
+    if (!isScheduled(t)) continue;
+    if (t.accountId === acc.id && t.type === 'Income') {
+      schedInc += t.amount;
+    }
+    if (t.type === 'Transfer' && t.toAccountId === acc.id) {
+      schedInc += (t.toAmount != null ? t.toAmount : t.amount);
+    }
+    if (t.accountId === acc.id && t.type === 'Expense') {
+      schedExp += t.amount;
+    }
+    if (t.type === 'Transfer' && t.accountId === acc.id) {
+      schedExp += t.amount;
+    }
+  }
+  const hasScheduled = schedInc > 0 || schedExp > 0;
+  // Projected balance = current balance + scheduled income - scheduled expense
+  const projected = bal + schedInc - schedExp;
 
   let html = `
     <div class="detail-head">
@@ -2204,16 +2441,47 @@ function renderAccountDetail() {
       </div>
     </div>
 
-    <section>
-      <div class="section-head">Транзакції · ${txs.length}</div>
+    ${hasScheduled ? `
+      <div class="acc-stats acc-stats-scheduled">
+        <div class="acc-stats-block">
+          <div class="acc-stats-head">Заплановано</div>
+          <div class="acc-stats-row">
+            <span class="lbl">Надходження</span>
+            <span class="val num" style="color: var(--income); opacity: 0.7">+${fmtMoney(schedInc, false, acc.currency).replace('−','').replace('+','')}</span>
+          </div>
+          <div class="acc-stats-row">
+            <span class="lbl">Витрати</span>
+            <span class="val num" style="color: var(--expense); opacity: 0.7">−${fmtMoney(schedExp, false, acc.currency).replace('−','').replace('+','')}</span>
+          </div>
+        </div>
+        <div class="acc-stats-block">
+          <div class="acc-stats-head">Баланс після</div>
+          <div class="projected-balance num" style="color:${projected < 0 ? 'var(--expense)' : 'var(--text)'}">${fmtMoney(projected, false, acc.currency)}</div>
+          <div class="projected-note">якщо всі будуть підтверджені</div>
+        </div>
+      </div>
+    ` : ''}
   `;
 
-  if (txs.length === 0) {
-    html += `<div class="empty"><div class="hint">Поки немає транзакцій. Тапни «+»</div></div>`;
-  } else {
-    // Group by date
+  // Due / upcoming / regular sections — like the main Transactions tab,
+  // but scoped to this account.
+
+  if (accDue.length > 0) {
+    html += `<section class="due-section">
+      <div class="section-head section-head-accent">До підтвердження · ${accDue.length}</div>
+    `;
+    for (const t of accDue) {
+      html += renderDueTransactionRow(t, today);
+    }
+    html += `</section>`;
+  }
+
+  if (allForAcc.length === 0) {
+    html += `<section><div class="section-head">Транзакції · 0</div><div class="empty"><div class="hint">Поки немає транзакцій. Тапни «+»</div></div></section>`;
+  } else if (accRegular.length > 0) {
+    html += `<section><div class="section-head">Транзакції · ${accRegular.length}</div>`;
     const groups = {};
-    for (const t of txs) {
+    for (const t of accRegular) {
       if (!groups[t.date]) groups[t.date] = [];
       groups[t.date].push(t);
     }
@@ -2235,8 +2503,19 @@ function renderAccountDetail() {
         `;
       }
     }
+    html += `</section>`;
   }
-  html += '</section>';
+
+  if (accUpcoming.length > 0) {
+    html += `<section class="upcoming-section">
+      <div class="section-head">Заплановані · ${accUpcoming.length}</div>
+    `;
+    for (const t of accUpcoming) {
+      html += renderUpcomingTransactionRow(t);
+    }
+    html += `</section>`;
+  }
+
   return html;
 }
 
@@ -2355,19 +2634,48 @@ function renderStats() {
 function renderSettings() {
   return `
     <div class="view-title serif">Налаштування</div>
-    <div class="view-sub">Категорії, курси, інше</div>
+    <div class="view-sub">Категорії, курси, бекап</div>
 
     <div class="stab-bar stab-bar-4">
       <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
       <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
-      <button class="${state.settingsTab === 'events' ? 'active' : ''}" data-action="stab" data-key="events">Події</button>
+      <button class="${state.settingsTab === 'backup' ? 'active' : ''}" data-action="stab" data-key="backup">Бекап</button>
       <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про</button>
     </div>
 
     ${state.settingsTab === 'categories' ? renderCategoriesSettings()
      : state.settingsTab === 'rates' ? renderRatesSettings()
-     : state.settingsTab === 'events' ? renderEventsSettings()
+     : state.settingsTab === 'backup' ? renderBackupSettings()
      : renderAboutSettings()}
+  `;
+}
+
+function renderBackupSettings() {
+  return `
+    <section style="margin-top: 6px;">
+      <div class="section-head">Бекап</div>
+      <div class="backup-status">
+        ${(() => {
+          const days = daysSinceLastBackup();
+          if (days === null) return `<span class="muted">Бекап ще не робився.</span>`;
+          if (days === 0) return `<span style="color: var(--income)">Останній бекап — сьогодні.</span>`;
+          if (days === 1) return `<span class="muted">Останній бекап — вчора.</span>`;
+          return `<span class="muted">Останній бекап — ${days} днів тому.</span>`;
+        })()}
+      </div>
+      <button class="add-btn" data-action="export-backup" style="border-color: var(--accent); color: var(--accent);">⇪ Зберегти бекап</button>
+      <button class="add-btn" data-action="import-backup-pick">⇩ Відновити з бекапу</button>
+      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
+      <div style="font-size: 11px; color: var(--text-3); margin-top: 10px; line-height: 1.5;">
+        Бекап — це один JSON-файл з усіма даними. Збережи його в Telegram (Saved Messages) або Google Drive — і дані переживуть будь-яке очищення Chrome чи зміну телефону.
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">CSV-звіт</div>
+      <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
+      <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Три файли для аналізу в Google Sheets. Не використовується для відновлення — для цього є бекап вище.</div>
+    </section>
   `;
 }
 
@@ -2542,37 +2850,10 @@ function renderAboutSettings() {
       </div>
     </section>
 
-    <section>
-      <div class="section-head">Бекап</div>
-      <div class="backup-status">
-        ${(() => {
-          const days = daysSinceLastBackup();
-          if (days === null) return `<span class="muted">Бекап ще не робився.</span>`;
-          if (days === 0) return `<span style="color: var(--income)">Останній бекап — сьогодні.</span>`;
-          if (days === 1) return `<span class="muted">Останній бекап — вчора.</span>`;
-          if (days < 7) return `<span class="muted">Останній бекап — ${days} днів тому.</span>`;
-          return `<span style="color: var(--expense)">Останній бекап — ${days} днів тому.</span>`;
-        })()}
-      </div>
-      <button class="add-btn" data-action="export-backup" style="border-color: var(--accent); color: var(--accent);">⇪ Зберегти бекап</button>
-      <button class="add-btn" data-action="import-backup-pick">⇩ Відновити з бекапу</button>
-      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
-      <div style="font-size: 11px; color: var(--text-3); margin-top: 10px; line-height: 1.5;">
-        Бекап — це один JSON-файл з усіма даними. Збережи його в Telegram (Saved Messages) або Google Drive — і дані переживуть будь-яке очищення Chrome чи зміну телефону.
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">Звіт</div>
-      <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
-      <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Три файли для аналізу в Google Sheets. Не використовується для відновлення.</div>
-    </section>
-
     <div style="padding: 20px 0; color: var(--text-2); font-size: 13px; line-height: 1.6;">
       <p style="margin-bottom: 12px;"><strong style="color: var(--text)">Фінанси · MVP</strong> <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-left: 6px;">v${APP_VERSION}</span></p>
       <p style="margin-bottom: 12px;">Особистий облік. Усі дані зберігаються тільки на цьому пристрої.</p>
-      <p style="margin-bottom: 12px;">v1.8.0: свайп для перемикання табів. Свайп вправо від лівого краю — повернутись з деталей рахунку.</p>
-      <p style="margin-bottom: 18px;">Деплой: два файли — index.html і sw.js — обидва в корінь репо.</p>
+      <p style="margin-bottom: 12px;">v1.10.0: заплановані одноразові транзакції (частина 1 з 2). Постав «Запланувати» у формі — транзакція не вплине на баланс, поки не підтвердиш. У день дати з'явиться секція «До підтвердження» зверху списку.</p>
 
       <div style="padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;">
         <strong style="color: var(--text); display: block; margin-bottom: 6px;">Якщо щось працює дивно</strong>
@@ -2877,9 +3158,15 @@ function renderTxDetail() {
             </div>
           </div>
           <div class="sheet-foot foot-3">
-            <button class="btn secondary" data-action="close-modal">Закрити</button>
-            <button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>
-            <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+            ${isScheduled(t) ? `
+              <button class="btn secondary" data-action="skip-scheduled" data-id="${t.id}">Пропустити</button>
+              <button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>
+              <button class="btn primary" data-action="confirm-scheduled" data-id="${t.id}">Підтвердити</button>
+            ` : `
+              <button class="btn secondary" data-action="close-modal">Закрити</button>
+              <button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>
+              <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+            `}
           </div>
         </div>
       </div>
@@ -2935,9 +3222,15 @@ function renderTxDetail() {
           </div>
         </div>
         <div class="sheet-foot foot-3">
-          <button class="btn secondary" data-action="close-modal">Закрити</button>
-          ${t.type !== 'Opening' ? `<button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>` : '<span></span>'}
-          <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+          ${isScheduled(t) ? `
+            <button class="btn secondary" data-action="skip-scheduled" data-id="${t.id}">Пропустити</button>
+            <button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>
+            <button class="btn primary" data-action="confirm-scheduled" data-id="${t.id}">Підтвердити</button>
+          ` : `
+            <button class="btn secondary" data-action="close-modal">Закрити</button>
+            ${t.type !== 'Opening' ? `<button class="btn accent" data-action="edit-tx" data-id="${t.id}">Редагувати</button>` : '<span></span>'}
+            <button class="btn danger" data-action="del-tx-from-detail" data-id="${t.id}">Видалити</button>
+          `}
         </div>
       </div>
     </div>
@@ -3003,8 +3296,14 @@ function renderNewTxModal() {
             : renderTxFormRegular(f, accs)}
 
           <div class="field">
-            <div class="field-label"><span class="lbl">Дата</span></div>
+            <div class="field-label">
+              <span class="lbl">${f.isScheduled ? 'Запланована на' : 'Дата'}</span>
+              <button class="toggle-scheduled ${f.isScheduled ? 'on' : ''}" data-action="toggle-scheduled">
+                ${ICONS.clock} ${f.isScheduled ? 'Запланована' : 'Запланувати'}
+              </button>
+            </div>
             <input class="input" type="date" value="${escapeAttr(f.date || todayISO())}" data-form="date">
+            ${f.isScheduled ? '<div style="font-size:11px;color:var(--text-3);margin-top:6px;font-style:italic">Не вплине на баланс, поки не підтвердиш</div>' : ''}
           </div>
 
           <div class="field">
@@ -3026,7 +3325,6 @@ function renderTxFormRegular(f, accs) {
   const availableCats = state.data.categories.filter(c => c.type === f.type && !c.archived);
   const acc = accs.find(a => a.id === f.accountId);
   const cur = acc ? acc.currency : 'EUR';
-  const events = state.data.events.filter(e => !e.archived);
 
   return `
     <div class="field">
@@ -3052,16 +3350,6 @@ function renderTxFormRegular(f, accs) {
         <option value="__new__">+ Нова категорія…</option>
       </select>
     </div>
-
-    ${events.length > 0 ? `
-      <div class="field">
-        <div class="field-label"><span class="lbl">Подія</span><span class="opt">опційно</span></div>
-        <select class="select" data-form="eventId">
-          <option value="">— без події —</option>
-          ${events.map(ev => `<option value="${ev.id}" ${f.eventId === ev.id ? 'selected' : ''}>${escapeHtml(ev.name)}</option>`).join('')}
-        </select>
-      </div>
-    ` : ''}
   `;
 }
 
@@ -3072,7 +3360,6 @@ function renderTxFormTransfer(f, accs) {
   const crossCur = fromAcc && toAcc && !sameCur;
   const fromCur = fromAcc ? fromAcc.currency : '';
   const toCur = toAcc ? toAcc.currency : '';
-  const events = state.data.events.filter(e => !e.archived);
 
   // Available "to" accounts: all except the chosen "from"
   const toAccs = accs.filter(a => a.id !== f.accountId);
@@ -3115,16 +3402,6 @@ function renderTxFormTransfer(f, accs) {
             ? `За курсом ≈ ${fmtMoney(convertCurrency(parseFloat(f.amount), fromCur, toCur), false, toCur)}. Скорегуй якщо банк дав інше.`
             : 'Розрахується автоматично за курсом, можеш скорегувати.'}
         </div>
-      </div>
-    ` : ''}
-
-    ${events.length > 0 ? `
-      <div class="field">
-        <div class="field-label"><span class="lbl">Подія</span><span class="opt">опційно</span></div>
-        <select class="select" data-form="eventId">
-          <option value="">— без події —</option>
-          ${events.map(ev => `<option value="${ev.id}" ${f.eventId === ev.id ? 'selected' : ''}>${escapeHtml(ev.name)}</option>`).join('')}
-        </select>
       </div>
     ` : ''}
   `;
@@ -3591,14 +3868,15 @@ function handleAction(action, key, id, trigger) {
       state.modalForm = {
         editingId: tx.id,
         type: tx.type === 'Opening' ? 'Income' : tx.type,  // Opening can't be edited as Opening, treat as Income
-        date: tx.date,
+        date: isScheduled(tx) ? tx.scheduledFor : tx.date,
         amount: String(Math.abs(tx.amount)),
         accountId: tx.accountId,
         categoryId: tx.categoryId || '',
         toAccountId: tx.toAccountId || '',
         toAmount: tx.toAmount != null ? String(tx.toAmount) : '',
-        toAmountEdited: true,  // pre-existing value, don't auto-overwrite
+        toAmountEdited: true,
         eventId: tx.eventId || '',
+        isScheduled: isScheduled(tx),
         note: tx.note || ''
       };
       vibrate(10);
@@ -3653,7 +3931,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '' };
       vibrate(10);
       render();
       break;
@@ -3666,7 +3944,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '' };
       vibrate(10);
       render();
       break;
@@ -3695,6 +3973,45 @@ function handleAction(action, key, id, trigger) {
       vibrate(10);
       render();
       break;
+
+    case 'toggle-scheduled':
+      state.modalForm.isScheduled = !state.modalForm.isScheduled;
+      // If turning ON and date is today, suggest tomorrow as a sensible default
+      if (state.modalForm.isScheduled && state.modalForm.date === todayISO()) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        state.modalForm.date = tomorrow.getFullYear() + '-' +
+          String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' +
+          String(tomorrow.getDate()).padStart(2, '0');
+      }
+      vibrate(8);
+      render();
+      break;
+
+    case 'confirm-scheduled': {
+      // Confirm the scheduled transaction as-is (no edits)
+      confirmScheduledTransaction(id);
+      // Close modal if we came from tx-detail
+      if (state.modal === 'txDetail') {
+        state.modal = null;
+        state.modalCtx = null;
+      }
+      vibrate([20, 30, 20]);
+      render();
+      break;
+    }
+
+    case 'skip-scheduled': {
+      // "Skip" means the payment didn't happen — just delete the scheduled tx
+      deleteTransaction(id);
+      if (state.modal === 'txDetail') {
+        state.modal = null;
+        state.modalCtx = null;
+      }
+      vibrate([20, 30, 20]);
+      render();
+      break;
+    }
 
     case 'tx-type':
       state.modalForm.type = key;
@@ -3727,7 +4044,7 @@ function handleAction(action, key, id, trigger) {
     case 'save-tx': {
       const f = state.modalForm;
       const payload = {
-        date: f.date,
+        date: f.isScheduled ? f.date : f.date,  // dates are the same either way; UI just labels them
         type: f.type,
         amount: f.amount,
         accountId: f.accountId,
@@ -3735,7 +4052,8 @@ function handleAction(action, key, id, trigger) {
         note: f.note || '',
         toAccountId: f.toAccountId,
         toAmount: f.toAmount,
-        eventId: f.eventId || null
+        eventId: f.eventId || null,
+        scheduledFor: f.isScheduled ? f.date : null
       };
       if (f.editingId) {
         updateTransaction(f.editingId, payload);
