@@ -1194,7 +1194,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.2';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1242,7 +1242,6 @@ const ICONS = {
 function exportBackup() {
   const today = todayISO();
   const filename = `finance-backup-${today}.json`;
-  // Snapshot of everything in the same shape as in storage
   const payload = {
     appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
@@ -1250,39 +1249,37 @@ function exportBackup() {
   };
   const json = JSON.stringify(payload, null, 2);
 
-  // Try Web Share API first (gives Telegram/Drive/etc. picker on mobile)
-  try {
-    if (navigator.canShare && typeof File !== 'undefined') {
-      const file = new File([json], filename, { type: 'application/json' });
-      if (navigator.canShare({ files: [file] })) {
-        navigator.share({
-          files: [file],
-          title: 'Бекап Фінансів',
-          text: `Бекап на ${today}`
-        }).then(() => {
-          // Mark backup as done on successful share
-          state.data.lastBackupAt = new Date().toISOString();
-          saveData();
-          render();
-        }).catch(err => {
-          // User cancelled share — fall back to download
-          if (err && err.name === 'AbortError') return;
-          downloadFile(filename, json);
-          state.data.lastBackupAt = new Date().toISOString();
-          saveData();
-          render();
-        });
-        return;
-      }
-    }
-  } catch (e) {
-    // Fall through to plain download
+  // Try Web Share API with file directly (no canShare check — it returns false on some
+  // Android versions even though share({ files }) actually works).
+  if (navigator.share && typeof File !== 'undefined') {
+    const file = new File([json], filename, { type: 'application/json' });
+    navigator.share({
+      files: [file],
+      title: 'Бекап Фінансів',
+      text: `Бекап на ${today}`
+    }).then(() => {
+      state.data.lastBackupAt = new Date().toISOString();
+      saveData();
+      render();
+    }).catch(err => {
+      if (err && err.name === 'AbortError') return;  // User cancelled — do nothing
+      // share({ files }) not supported on this device — fallback to download
+      downloadFile(filename, json);
+      state.data.lastBackupAt = new Date().toISOString();
+      saveData();
+      state.modal = 'backupSaved';
+      state.modalCtx = filename;
+      render();
+    });
+    return;
   }
 
-  // Fallback: regular download
+  // No Share API at all — plain download + instructions
   downloadFile(filename, json);
   state.data.lastBackupAt = new Date().toISOString();
   saveData();
+  state.modal = 'backupSaved';
+  state.modalCtx = filename;
   render();
 }
 
@@ -2964,7 +2961,7 @@ function renderBackupSettings() {
       </div>
       <button class="add-btn" data-action="export-backup" style="border-color: var(--accent); color: var(--accent);">⇪ Зберегти бекап</button>
       <button class="add-btn" data-action="import-backup-pick">⇩ Відновити з бекапу</button>
-      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
+      <input type="file" id="backup-file-input" accept="*" style="display:none">
       <div style="font-size: 11px; color: var(--text-3); margin-top: 10px; line-height: 1.5;">
         Бекап — це один JSON-файл з усіма даними. Збережи його в Telegram (Saved Messages) або Google Drive — і дані переживуть будь-яке очищення Chrome чи зміну телефону.
       </div>
@@ -3215,6 +3212,7 @@ function renderModal() {
     case 'confirmImport': return renderConfirmImport();
     case 'infoRestored':  return renderInfoRestored();
     case 'infoBlocked':   return renderBlocked();
+    case 'backupSaved':   return renderBackupSaved();
     case 'makeRecurring': return renderMakeRecurringModal();
     case 'editRule':      return renderEditRuleModal();
     case 'confirmDelRule': return renderConfirmDelRule();
@@ -3353,6 +3351,47 @@ function renderRuleSummary(rule) {
       <div class="rule-meta">
         ${acc ? escapeHtml(acc.name) : '—'}${rule.type === 'Transfer' && toAcc ? ' → ' + escapeHtml(toAcc.name) : ''}
         ${rule.paused ? ' · <span style="color: var(--expense)">призупинено</span>' : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderBackupSaved() {
+  const filename = state.modalCtx || 'backup.json';
+  return `
+    <div class="scrim">
+      <div class="sheet">
+        <div class="sheet-head">
+          <span class="title">Бекап збережено</span>
+          <button class="close" data-action="close-modal">${ICONS.close}</button>
+        </div>
+        <div class="sheet-body">
+          <div style="font-size: 13px; color: var(--text-2); line-height: 1.6;">
+            <p style="margin-bottom: 14px;">Файл <strong style="color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px;">${escapeHtml(filename)}</strong> збережено у папку <strong style="color: var(--text)">Завантаження</strong> (Downloads).</p>
+
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;">
+              <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 8px;">Як надіслати в Telegram</div>
+              <ol style="list-style: decimal; padding-left: 18px; color: var(--text-2); font-size: 12px; line-height: 1.8;">
+                <li>Відкрий Telegram</li>
+                <li>Перейди в <strong style="color: var(--text)">Saved Messages</strong> (чат з собою)</li>
+                <li>Скріп «+» → <strong style="color: var(--text)">Файл</strong></li>
+                <li>Знайди у Завантаженнях: <strong style="color: var(--text)">${escapeHtml(filename)}</strong></li>
+              </ol>
+            </div>
+
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+              <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 8px;">Як надіслати в Google Drive</div>
+              <ol style="list-style: decimal; padding-left: 18px; color: var(--text-2); font-size: 12px; line-height: 1.8;">
+                <li>Відкрий Google Drive</li>
+                <li>«+» → <strong style="color: var(--text)">Завантажити файл</strong></li>
+                <li>Знайди у Завантаженнях: <strong style="color: var(--text)">${escapeHtml(filename)}</strong></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+        <div class="sheet-foot">
+          <button class="btn primary" data-action="close-modal">Зрозуміло</button>
+        </div>
       </div>
     </div>
   `;
