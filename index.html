@@ -1822,7 +1822,12 @@ const state = {
   testFiles: [],           // cached list of attachments shown in Test settings tab
   testQuota: null,         // last storage estimate { usage, quota }
   testPersistent: null,    // null until requested; then true/false
-  testBusy: false          // true while files are being added
+  testBusy: false,         // true while files are being added
+  testRefreshedAt: null,   // timestamp of last successful refresh
+  testRefreshing: false,   // true while refresh is in flight
+  testPersistedAt: null,   // timestamp of last persistence query via button
+  testPersisting: false,   // true while persistence request is in flight
+  testError: null          // last error message from refresh/persist
 };
 
 /* ============================================================
@@ -3230,9 +3235,18 @@ function renderTestSettings() {
         ${q ? `
           <div>Використано в браузері: <strong>${fmtBytes(q.usage)}</strong> з ${fmtBytes(q.quota)} (${q.quota ? ((q.usage / q.quota) * 100).toFixed(1) : '—'}%)</div>
         ` : `<div class="muted">Квота: натисни «Оновити» нижче</div>`}
+        ${state.testRefreshedAt ? `
+          <div style="color: var(--text-3); margin-top: 4px; font-size: 11px;">Оновлено: ${new Date(state.testRefreshedAt).toLocaleTimeString('uk-UA')}</div>
+        ` : ''}
+        ${state.testPersistedAt ? `
+          <div style="color: var(--text-3); font-size: 11px;">Persistence запит: ${new Date(state.testPersistedAt).toLocaleTimeString('uk-UA')}</div>
+        ` : ''}
+        ${state.testError ? `
+          <div style="color: var(--danger); margin-top: 6px; font-size: 11px;">Помилка: ${escapeHtml(state.testError)}</div>
+        ` : ''}
       </div>
-      <button class="add-btn" data-action="test-refresh-stats" style="margin-top: 10px;">🔄 Оновити статус</button>
-      <button class="add-btn" data-action="test-request-persist">🔒 Запитати persistence</button>
+      <button class="add-btn" data-action="test-refresh-stats" style="margin-top: 10px;">${state.testRefreshing ? '⏳ Оновлюю...' : '🔄 Оновити статус'}</button>
+      <button class="add-btn" data-action="test-request-persist">${state.testPersisting ? '⏳ Запитую...' : '🔒 Запитати persistence'}</button>
     </section>
 
     <section>
@@ -5331,15 +5345,28 @@ function handleAction(action, key, id, trigger) {
     }
 
     case 'test-refresh-stats': {
-      refreshTestData();
+      state.testRefreshing = true;
       vibrate(8);
+      render();
+      refreshTestData().finally(() => {
+        state.testRefreshing = false;
+        render();
+      });
       break;
     }
 
     case 'test-request-persist': {
+      state.testPersisting = true;
+      vibrate(8);
+      render();
       requestPersistence().then((res) => {
         state.testPersistent = res.supported ? res.persistent : false;
-        vibrate(8);
+        state.testPersistedAt = Date.now();
+        if (res.error) state.testError = res.error;
+      }).catch((e) => {
+        state.testError = String(e && e.message ? e.message : e);
+      }).finally(() => {
+        state.testPersisting = false;
         render();
       });
       break;
@@ -5398,9 +5425,13 @@ async function refreshTestData() {
     if (navigator.storage && navigator.storage.persisted) {
       state.testPersistent = await navigator.storage.persisted();
     }
-    render();
+    state.testRefreshedAt = Date.now();
+    state.testError = null;
   } catch (e) {
     console.error('refreshTestData failed', e);
+    state.testError = String(e && e.message ? e.message : e);
+  } finally {
+    render();
   }
 }
 
