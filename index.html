@@ -14,6 +14,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- JSZip — for ZIP backups that bundle JSON data + attachment blobs.
+     Loaded from CDN; will be cached by the service worker on first online use. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   /* ============================================================
      RESET & TOKENS
@@ -691,7 +694,6 @@
   .stab-bar button.active { background: var(--bg); color: var(--text); }
 
   .stab-bar.stab-bar-4 button { font-size: 10px; padding: 9px 0; }
-  .stab-bar.stab-bar-5 button { font-size: 9px; padding: 9px 0; letter-spacing: 0.02em; }
 
   .events-explainer {
     margin-top: 22px;
@@ -1341,85 +1343,251 @@ const ICONS = {
   repeat: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
 };
 
-function exportBackup() {
-  const today = todayISO();
-  const filename = `finance-backup-${today}.json`;
-  const payload = {
-    appVersion: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    data: state.data
-  };
-  const json = JSON.stringify(payload, null, 2);
-
-  // Try Web Share API with file directly (no canShare check — it returns false on some
-  // Android versions even though share({ files }) actually works).
-  if (navigator.share && typeof File !== 'undefined') {
-    const file = new File([json], filename, { type: 'application/json' });
-    navigator.share({
-      files: [file],
-      title: 'Бекап Фінансів',
-      text: `Бекап на ${today}`
-    }).then(() => {
-      state.data.lastBackupAt = new Date().toISOString();
-      saveData();
-      render();
-    }).catch(err => {
-      if (err && err.name === 'AbortError') return;  // User cancelled — do nothing
-      // share({ files }) not supported on this device — fallback to download
-      downloadFile(filename, json);
-      state.data.lastBackupAt = new Date().toISOString();
-      saveData();
-      state.modal = 'backupSaved';
-      state.modalCtx = filename;
-      render();
-    });
+async function exportBackup() {
+  // ZIP-based backup: data.json + manifest.json + attachments/*
+  // This preserves attachments alongside the financial data. Requires JSZip.
+  if (typeof JSZip === 'undefined') {
+    state.modal = 'infoBlocked';
+    state.modalCtx = 'Бібліотека для архівації не завантажилась. Перевір підключення до інтернету і перезайди в апку.';
+    render();
     return;
   }
 
-  // No Share API at all — plain download + instructions
-  downloadFile(filename, json);
-  state.data.lastBackupAt = new Date().toISOString();
+  const today = todayISO();
+  const filename = `finance-backup-${today}.zip`;
+
+  try {
+    const allAttachments = await attDB.getAll();
+
+    const manifest = {
+      format: 'fin-backup',
+      version: 1,
+      appVersion: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      stats: {
+        accounts: state.data.accounts.length,
+        transactions: state.data.transactions.length,
+        categories: state.data.categories.length,
+        attachments: allAttachments.length,
+        attachmentsSize: allAttachments.reduce((s, a) => s + (a.size || 0), 0)
+      },
+      // Per-file metadata. The actual bytes live under attachments/<id><ext>.
+      attachments: allAttachments.map(a => ({
+        id: a.id,
+        transactionId: a.transactionId,
+        name: a.name,
+        mime: a.mime,
+        size: a.size,
+        addedAt: a.addedAt,
+        file: `${a.id}${extForMime(a.mime, a.name)}`
+      }))
+    };
+
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('data.json', JSON.stringify({ appVersion: APP_VERSION, data: state.data }, null, 2));
+    if (allAttachments.length) {
+      const folder = zip.folder('attachments');
+      for (const a of allAttachments) {
+        folder.file(`${a.id}${extForMime(a.mime, a.name)}`, a.blob);
+      }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+    // Try Web Share API with the file directly — best UX on Android.
+    if (navigator.share && typeof File !== 'undefined') {
+      const file = new File([zipBlob], filename, { type: 'application/zip' });
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Бекап Фінансів',
+          text: `Бекап на ${today}`
+        });
+        state.data.lastBackupAt = new Date().toISOString();
+        saveData();
+        render();
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;  // User cancelled
+        // Fall through to download fallback
+      }
+    }
+
+    // Fallback: plain download
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+
+    state.data.lastBackupAt = new Date().toISOString();
+    saveData();
+    state.modal = 'backupSaved';
+    state.modalCtx = filename;
+    render();
+  } catch (err) {
+    console.error('Backup export failed', err);
+    state.modal = 'infoBlocked';
+    state.modalCtx = 'Не вдалося створити бекап: ' + (err && err.message ? err.message : String(err));
+    render();
+  }
+}
+
+// Guess a file extension from MIME type, falling back to the original name's
+// extension if mime is generic or missing.
+function extForMime(mime, name) {
+  const map = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/heic': '.heic',
+    'image/heif': '.heif',
+    'application/pdf': '.pdf',
+    'text/plain': '.txt',
+    'text/csv': '.csv',
+    'application/json': '.json',
+    'application/zip': '.zip'
+  };
+  if (mime && map[mime]) return map[mime];
+  // Fallback: extract from original filename
+  if (name) {
+    const idx = name.lastIndexOf('.');
+    if (idx > 0 && idx < name.length - 1) return name.slice(idx);
+  }
+  return '.bin';
+}
+
+async function importBackup(file) {
+  // Detect format by extension/MIME, with a content-sniff fallback.
+  // - .zip → new format (data + attachments)
+  // - .json → legacy format (data only)
+  const looksLikeZip = (file.name && file.name.toLowerCase().endsWith('.zip'))
+                    || file.type === 'application/zip'
+                    || file.type === 'application/x-zip-compressed';
+  const looksLikeJson = (file.name && file.name.toLowerCase().endsWith('.json'))
+                    || file.type === 'application/json';
+
+  try {
+    if (looksLikeZip || (!looksLikeJson && file.size > 4096)) {
+      // Try ZIP first; if it fails, fall through to JSON parsing.
+      try {
+        await importZipBackup(file);
+        return;
+      } catch (zipErr) {
+        if (looksLikeZip) throw zipErr;  // Definitely a ZIP, so an error is fatal
+        // Else: maybe a JSON. Continue.
+      }
+    }
+    await importJsonBackup(file);
+  } catch (err) {
+    console.error('Import failed', err);
+    state.modal = 'infoBlocked';
+    state.modalCtx = 'Не вдалося відновити з бекапу: ' + (err && err.message ? err.message : String(err));
+    render();
+  }
+}
+
+async function importZipBackup(file) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('Бібліотека для архівації не завантажилась. Спробуй з підключеним інтернетом.');
+  }
+  const zip = await JSZip.loadAsync(file);
+  const manifestEntry = zip.file('manifest.json');
+  const dataEntry = zip.file('data.json');
+  if (!manifestEntry || !dataEntry) {
+    throw new Error('У ZIP-архіві відсутні manifest.json або data.json. Файл не схожий на бекап Фінансів.');
+  }
+  const manifest = JSON.parse(await manifestEntry.async('string'));
+  const dataPayload = JSON.parse(await dataEntry.async('string'));
+  const newData = dataPayload.data || dataPayload;
+  if (!newData || !Array.isArray(newData.accounts) || !Array.isArray(newData.transactions)) {
+    throw new Error('Дані в архіві пошкоджені або в неочікуваному форматі.');
+  }
+
+  // Restore the main data first via the same path as legacy JSON import.
+  state.data = migrate(newData);
   saveData();
-  state.modal = 'backupSaved';
-  state.modalCtx = filename;
+  applyTheme();
+
+  // Now restore attachments. Wipe IDB first — full replacement semantics.
+  await attDB.clear();
+  let restored = 0, missing = 0;
+  const attList = Array.isArray(manifest.attachments) ? manifest.attachments : [];
+  for (const meta of attList) {
+    const entry = zip.file(`attachments/${meta.file}`);
+    if (!entry) { missing++; continue; }
+    try {
+      const blob = await entry.async('blob');
+      // Ensure the blob has the right MIME (JSZip's default may be generic).
+      const typedBlob = (meta.mime && blob.type !== meta.mime)
+        ? new Blob([blob], { type: meta.mime })
+        : blob;
+      await attDB.addRecord({
+        id: meta.id,
+        transactionId: meta.transactionId || null,
+        name: meta.name || 'unnamed',
+        mime: meta.mime || 'application/octet-stream',
+        size: meta.size || typedBlob.size,
+        blob: typedBlob,
+        addedAt: meta.addedAt || Date.now()
+      });
+      restored++;
+    } catch (e) {
+      console.warn('Failed to restore attachment', meta.id, e);
+      missing++;
+    }
+  }
+
+  // Rebuild the global attachment index.
+  await loadAttachmentsIndex();
+
+  state.view = 'transactions';
+  state.subView = null;
+  state.modal = 'infoRestored';
+  const attMsg = restored > 0
+    ? ` Вкладень: ${restored}${missing > 0 ? ` (${missing} не вдалося відновити)` : ''}.`
+    : (attList.length > 0 ? ` Вкладень: 0 з ${attList.length}.` : '');
+  state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій.${attMsg}`;
+  vibrate([10, 40, 30]);
   render();
 }
 
-function importBackup(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      // Accept either {data: {...}} (new format) or raw state (manual edits)
-      const newData = parsed.data || parsed;
-      if (!newData || !Array.isArray(newData.accounts) || !Array.isArray(newData.transactions)) {
-        state.modal = 'infoBlocked';
-        state.modalCtx = 'Файл не схожий на бекап Фінансів. Перевір, що це правильний JSON-файл, експортований з цієї апки.';
+function importJsonBackup(file) {
+  // Legacy path — supports backups exported before ZIP format.
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        const newData = parsed.data || parsed;
+        if (!newData || !Array.isArray(newData.accounts) || !Array.isArray(newData.transactions)) {
+          reject(new Error('Файл не схожий на бекап Фінансів.'));
+          return;
+        }
+        state.data = migrate(newData);
+        saveData();
+        applyTheme();
+        // Legacy backups don't carry attachments — but they also shouldn't
+        // wipe existing ones implicitly. Leave attDB and the index untouched.
+        state.view = 'transactions';
+        state.subView = null;
+        state.modal = 'infoRestored';
+        state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій. (Старий JSON-бекап — без вкладень.)`;
+        vibrate([10, 40, 30]);
         render();
-        return;
+        resolve();
+      } catch (err) {
+        reject(new Error('Не вдалося прочитати JSON: ' + err.message));
       }
-      // Run through migrate to ensure all fields exist on older backups
-      state.data = migrate(newData);
-      saveData();
-      applyTheme();
-      state.view = 'transactions';
-      state.subView = null;
-      state.modal = 'infoRestored';
-      state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій.`;
-      vibrate([10, 40, 30]);
-      render();
-    } catch (err) {
-      state.modal = 'infoBlocked';
-      state.modalCtx = 'Не вдалося прочитати файл як JSON. Можливо, файл пошкоджений.';
-      render();
-    }
-  };
-  reader.onerror = () => {
-    state.modal = 'infoBlocked';
-    state.modalCtx = 'Помилка читання файлу.';
-    render();
-  };
-  reader.readAsText(file);
+    };
+    reader.onerror = () => reject(new Error('Помилка читання файлу.'));
+    reader.readAsText(file);
+  });
 }
 
 function daysSinceLastBackup() {
@@ -1565,6 +1733,18 @@ const attDB = (() => {
     });
   }
 
+  // Store a fully-formed record without recompressing the blob.
+  // Used when restoring from a ZIP backup — the blob is already what it should be.
+  async function addRecord(record) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(record);  // put = upsert; overwrites by id
+      tx.oncomplete = () => resolve(record);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   async function getByTransaction(transactionId) {
     const db = await open();
     return new Promise((resolve, reject) => {
@@ -1616,7 +1796,7 @@ const attDB = (() => {
     });
   }
 
-  return { open, add, get, getByTransaction, getAll, remove, clear };
+  return { open, add, addRecord, get, getByTransaction, getAll, remove, clear };
 })();
 
 /* ============================================================
@@ -1919,16 +2099,6 @@ const state = {
   modalCtx: null,          // arbitrary data for modal
   modalForm: {},           // current values in the open modal
   pendingTx: null,         // when creating category from tx-form, holds the tx form to return to
-  // Stage 1 — attachments smoke-test (will be removed in Stage 2):
-  testFiles: [],           // cached list of attachments shown in Test settings tab
-  testQuota: null,         // last storage estimate { usage, quota }
-  testPersistent: null,    // null until requested; then true/false
-  testBusy: false,         // true while files are being added
-  testRefreshedAt: null,   // timestamp of last successful refresh
-  testRefreshing: false,   // true while refresh is in flight
-  testPersistedAt: null,   // timestamp of last persistence query via button
-  testPersisting: false,   // true while persistence request is in flight
-  testError: null,         // last error message from refresh/persist
   // Stage 2a — attachments inside tx-detail modal:
   txDetailAttachments: [], // [{ id, transactionId, name, mime, size, blob, addedAt, thumbUrl? }]
   txDetailLoading: false,  // true while loading the list for the open tx
@@ -3270,18 +3440,16 @@ function renderSettings() {
     <div class="view-title serif">Налаштування</div>
     <div class="view-sub">Категорії, курси, бекап</div>
 
-    <div class="stab-bar stab-bar-5">
+    <div class="stab-bar stab-bar-4">
       <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
       <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
       <button class="${state.settingsTab === 'backup' ? 'active' : ''}" data-action="stab" data-key="backup">Бекап</button>
-      <button class="${state.settingsTab === 'test' ? 'active' : ''}" data-action="stab" data-key="test">🧪 Тест</button>
       <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про</button>
     </div>
 
     ${state.settingsTab === 'categories' ? renderCategoriesSettings()
      : state.settingsTab === 'rates' ? renderRatesSettings()
      : state.settingsTab === 'backup' ? renderBackupSettings()
-     : state.settingsTab === 'test' ? renderTestSettings()
      : renderAboutSettings()}
   `;
 }
@@ -3301,9 +3469,9 @@ function renderBackupSettings() {
       </div>
       <button class="add-btn" data-action="export-backup" style="border-color: var(--accent); color: var(--accent);">⇪ Зберегти бекап</button>
       <button class="add-btn" data-action="import-backup-pick">⇩ Відновити з бекапу</button>
-      <input type="file" id="backup-file-input" accept="*" style="display:none">
+      <input type="file" id="backup-file-input" accept=".zip,.json,application/zip,application/json" style="display:none">
       <div style="font-size: 11px; color: var(--text-3); margin-top: 10px; line-height: 1.5;">
-        Бекап — це один JSON-файл з усіма даними. Збережи його в Telegram (Saved Messages) або Google Drive — і дані переживуть будь-яке очищення Chrome чи зміну телефону.
+        Бекап — це ZIP-архів з усіма даними і прикріпленими файлами. Збережи його в Telegram (Saved Messages) або Google Drive — і все переживе будь-яке очищення Chrome чи зміну телефону. Старі JSON-бекапи теж приймаються при відновленні.
       </div>
     </section>
 
@@ -3312,96 +3480,6 @@ function renderBackupSettings() {
       <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
       <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Три файли для аналізу в Google Sheets. Не використовується для відновлення — для цього є бекап вище.</div>
     </section>
-  `;
-}
-
-/* ============================================================
-   TEST SETTINGS — temporary smoke-test for the attachments layer.
-   Will be removed once attachments are wired into transactions
-   in Stage 2.
-   ============================================================ */
-function renderTestSettings() {
-  const files = state.testFiles || [];
-  const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
-  const q = state.testQuota;
-  const persistTxt = state.testPersistent === null
-    ? '<span class="muted">не запитано</span>'
-    : state.testPersistent
-      ? '<span style="color: var(--income)">так, гарантовано не видалиться</span>'
-      : '<span style="color: var(--expense)">ні, браузер може видалити</span>';
-
-  return `
-    <section style="margin-top: 6px;">
-      <div class="section-head">🧪 Тест вкладень (Етап 1)</div>
-      <div style="font-size: 12px; color: var(--text-2); line-height: 1.5; margin-bottom: 14px;">
-        Тимчасова сторінка для перевірки фундаменту. Тут можна додавати файли «в порожнечу» (без прив'язки до транзакції), переглядати їх і видаляти. У наступному етапі прикріплення з'являться всередині транзакцій.
-      </div>
-
-      <input type="file" id="test-file-input" accept="*" multiple style="display:none">
-      <input type="file" id="test-photo-input" accept="image/*" capture="environment" multiple style="display:none">
-      <input type="file" id="test-gallery-input" accept="image/*" multiple style="display:none">
-
-      <button class="add-btn" data-action="test-pick-camera" style="border-color: var(--accent); color: var(--accent);">📷 Зробити фото</button>
-      <button class="add-btn" data-action="test-pick-gallery">🖼️ Вибрати з галереї</button>
-      <button class="add-btn" data-action="test-pick-file">📎 Додати файл</button>
-    </section>
-
-    <section>
-      <div class="section-head">Сховище</div>
-      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.7;">
-        <div>Файлів: <strong>${files.length}</strong></div>
-        <div>Загальний розмір: <strong>${fmtBytes(totalSize)}</strong></div>
-        <div>Persistence: ${persistTxt}</div>
-        ${q ? `
-          <div>Використано в браузері: <strong>${fmtBytes(q.usage)}</strong> з ${fmtBytes(q.quota)} (${q.quota ? ((q.usage / q.quota) * 100).toFixed(1) : '—'}%)</div>
-        ` : `<div class="muted">Квота: натисни «Оновити» нижче</div>`}
-        ${state.testRefreshedAt ? `
-          <div style="color: var(--text-3); margin-top: 4px; font-size: 11px;">Оновлено: ${new Date(state.testRefreshedAt).toLocaleTimeString('uk-UA')}</div>
-        ` : ''}
-        ${state.testPersistedAt ? `
-          <div style="color: var(--text-3); font-size: 11px;">Persistence запит: ${new Date(state.testPersistedAt).toLocaleTimeString('uk-UA')}</div>
-        ` : ''}
-        ${state.testError ? `
-          <div style="color: var(--danger); margin-top: 6px; font-size: 11px;">Помилка: ${escapeHtml(state.testError)}</div>
-        ` : ''}
-      </div>
-      <button class="add-btn" data-action="test-refresh-stats" style="margin-top: 10px;">${state.testRefreshing ? '⏳ Оновлюю...' : '🔄 Оновити статус'}</button>
-      <button class="add-btn" data-action="test-request-persist">${state.testPersisting ? '⏳ Запитую...' : '🔒 Запитати persistence'}</button>
-    </section>
-
-    <section>
-      <div class="section-head">Збережені файли</div>
-      ${files.length === 0 ? `
-        <div style="color: var(--text-3); font-size: 13px; padding: 14px 4px; font-style: italic;">Поки порожньо. Додай файл вище — і він з'явиться тут.</div>
-      ` : `
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          ${files.map(f => renderTestFileRow(f)).join('')}
-        </div>
-        <button class="add-btn danger" data-action="test-clear-all" style="margin-top: 14px; border-color: var(--danger); color: var(--danger);">🗑️ Видалити всі файли</button>
-      `}
-    </section>
-
-    <section>
-      <div style="font-size: 11px; color: var(--text-3); line-height: 1.6; padding: 10px 4px;">
-        Що перевіряємо: фото з камери стискається до &lt;500 КБ, PDF зберігається як є, файл відкривається через «Переглянути», після перезапуску додатку дані лишаються на місці.
-      </div>
-    </section>
-  `;
-}
-
-function renderTestFileRow(f) {
-  const isImage = (f.mime || '').startsWith('image/');
-  const date = new Date(f.addedAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  return `
-    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
-      <div style="font-size: 22px; flex-shrink: 0;">${isImage ? '🖼️' : f.mime === 'application/pdf' ? '📄' : '📎'}</div>
-      <div style="flex: 1; min-width: 0;">
-        <div style="font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.name)}</div>
-        <div style="font-size: 11px; color: var(--text-3); margin-top: 2px;">${fmtBytes(f.size)} · ${escapeHtml(f.mime || '?')} · ${date}</div>
-      </div>
-      <button data-action="test-view-file" data-id="${f.id}" style="font-size: 11px; padding: 6px 10px; border: 1px solid var(--border-2); border-radius: 6px; color: var(--text-2);">Відкрити</button>
-      <button data-action="test-delete-file" data-id="${f.id}" style="font-size: 16px; padding: 4px 8px; color: var(--danger);">×</button>
-    </div>
   `;
 }
 
@@ -4857,11 +4935,6 @@ function setupEvents() {
       state.pendingImportFile = e.target.files[0];
       handleAction('confirm-import-backup');
     }
-    // Stage 1 test inputs
-    if ((e.target.id === 'test-file-input' || e.target.id === 'test-photo-input' || e.target.id === 'test-gallery-input')
-        && e.target.files && e.target.files.length) {
-      handleTestFilesPicked(Array.from(e.target.files));
-    }
     // Stage 2a attachment inputs for tx-detail
     if ((e.target.id === 'att-camera-input' || e.target.id === 'att-file-input')
         && e.target.files && e.target.files.length) {
@@ -5595,85 +5668,6 @@ function handleAction(action, key, id, trigger) {
       render();
       break;
 
-    /* ========== Stage 1 — attachments smoke-test ========== */
-
-    case 'test-pick-camera': {
-      const input = document.getElementById('test-photo-input');
-      if (input) { input.value = ''; input.click(); }
-      break;
-    }
-
-    case 'test-pick-gallery': {
-      const input = document.getElementById('test-gallery-input');
-      if (input) { input.value = ''; input.click(); }
-      break;
-    }
-
-    case 'test-pick-file': {
-      const input = document.getElementById('test-file-input');
-      if (input) { input.value = ''; input.click(); }
-      break;
-    }
-
-    case 'test-refresh-stats': {
-      state.testRefreshing = true;
-      vibrate(8);
-      render();
-      refreshTestData().finally(() => {
-        state.testRefreshing = false;
-        render();
-      });
-      break;
-    }
-
-    case 'test-request-persist': {
-      state.testPersisting = true;
-      vibrate(8);
-      render();
-      requestPersistence().then((res) => {
-        state.testPersistent = res.supported ? res.persistent : false;
-        state.testPersistedAt = Date.now();
-        if (res.error) state.testError = res.error;
-      }).catch((e) => {
-        state.testError = String(e && e.message ? e.message : e);
-      }).finally(() => {
-        state.testPersisting = false;
-        render();
-      });
-      break;
-    }
-
-    case 'test-view-file': {
-      attDB.get(id).then((rec) => {
-        if (!rec || !rec.blob) return;
-        const url = URL.createObjectURL(rec.blob);
-        // Open in a new tab. Browser handles preview (image, PDF) natively.
-        window.open(url, '_blank');
-        // Revoke after a delay so the new tab has time to load.
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      });
-      vibrate(8);
-      break;
-    }
-
-    case 'test-delete-file': {
-      attDB.remove(id).then(() => {
-        state.testFiles = state.testFiles.filter(f => f.id !== id);
-        vibrate([20, 30]);
-        render();
-      });
-      break;
-    }
-
-    case 'test-clear-all': {
-      attDB.clear().then(() => {
-        state.testFiles = [];
-        vibrate([20, 30, 20]);
-        render();
-      });
-      break;
-    }
-
     /* ========== Stage 2a — attachments in tx-detail ========== */
 
     case 'att-pick-camera': {
@@ -5772,56 +5766,6 @@ function handleAction(action, key, id, trigger) {
       closeModalOrBack();
       render();
       break;
-  }
-}
-
-/* ============================================================
-   TEST helpers (Stage 1 only)
-   ============================================================ */
-
-async function refreshTestData() {
-  try {
-    const [files, quota] = await Promise.all([
-      attDB.getAll(),
-      storageEstimate()
-    ]);
-    state.testFiles = files.sort((a, b) => b.addedAt - a.addedAt);
-    state.testQuota = quota;
-    if (navigator.storage && navigator.storage.persisted) {
-      state.testPersistent = await navigator.storage.persisted();
-    }
-    state.testRefreshedAt = Date.now();
-    state.testError = null;
-  } catch (e) {
-    console.error('refreshTestData failed', e);
-    state.testError = String(e && e.message ? e.message : e);
-  } finally {
-    render();
-  }
-}
-
-async function handleTestFilesPicked(files) {
-  if (!files || !files.length) return;
-  const MAX_SIZE = 20 * 1024 * 1024; // 20 MB per file
-  state.testBusy = true;
-  let added = 0;
-  let skipped = 0;
-  for (const file of files) {
-    if (!file || file.size === 0) { skipped++; continue; }
-    if (file.size > MAX_SIZE) { skipped++; continue; }
-    try {
-      await attDB.add(file, null);
-      added++;
-    } catch (e) {
-      console.error('attDB.add failed', e);
-      skipped++;
-    }
-  }
-  state.testBusy = false;
-  await refreshTestData();
-  vibrate(added > 0 ? [20, 30, 20] : 30);
-  if (skipped > 0) {
-    console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
   }
 }
 
@@ -5973,11 +5917,11 @@ render();
 setupEvents();
 setupSwipe();
 
-// Stage 1+2 — open attachments DB, then load the file list for the test tab
-// and build the global index of tx ids that have attachments (for the 📎 badge).
-// Errors are non-fatal: the rest of the app works without attachments.
+// Open the attachments IndexedDB and build the global index of tx ids that
+// have attachments (for the 📎 badge). Errors are non-fatal: the rest of the
+// app works without attachments.
 attDB.open()
-  .then(() => Promise.all([refreshTestData(), loadAttachmentsIndex()]))
+  .then(() => loadAttachmentsIndex())
   .catch(err => console.warn('attDB init failed:', err));
 
 // React to system theme changes if user is on 'system' mode
