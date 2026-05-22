@@ -225,6 +225,12 @@
   .tx-row .amount.expense { color: var(--expense); }
   .tx-row .amount.transfer { color: var(--transfer); font-size: 14px; }
   .tx-row .meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .tx-row .att-badge {
+    color: var(--accent);
+    margin-left: 6px;
+    font-size: 11px;
+    opacity: 0.75;
+  }
 
   /* ACCOUNT CARD */
   .acc-card {
@@ -1928,7 +1934,9 @@ const state = {
   txDetailLoading: false,  // true while loading the list for the open tx
   txDetailUploading: false,// true while a new file is being processed and saved
   attachingToTxId: null,   // which tx the file picker is currently adding to
-  attDeleteArmed: null     // id of attachment whose delete button is in confirm state
+  attDeleteArmed: null,    // id of attachment whose delete button is in confirm state
+  // Stage 2b — global index of tx ids that have attachments (for the list badge):
+  txIdsWithAttachments: new Set()
 };
 
 /* ============================================================
@@ -2393,6 +2401,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
   const acc = findAccount(accountId);
   const fromCur = acc ? acc.currency : 'EUR';
 
+  let record;
   if (type === 'Transfer') {
     const toAcc = findAccount(toAccountId);
     const toCur = toAcc ? toAcc.currency : fromCur;
@@ -2401,7 +2410,7 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
     let toAmt = (fromCur === toCur)
       ? amt
       : (toAmount != null && toAmount !== '' ? parseFloat(toAmount) : convertCurrency(amt, fromCur, toCur));
-    state.data.transactions.push({
+    record = {
       id: uid(),
       date,
       type: 'Transfer',
@@ -2417,9 +2426,9 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
-    });
+    };
   } else {
-    state.data.transactions.push({
+    record = {
       id: uid(),
       date,
       type,
@@ -2435,9 +2444,11 @@ function createTransaction({ date, type, amount, accountId, categoryId, note, to
       note: (note || '').trim(),
       createdAt: now,
       updatedAt: now
-    });
+    };
   }
+  state.data.transactions.push(record);
   saveData();
+  return record;
 }
 
 function updateTransaction(id, { date, type, amount, accountId, categoryId, note, toAccountId, toAmount, eventId, scheduledFor }) {
@@ -2490,6 +2501,7 @@ function deleteTransaction(id) {
   saveData();
   // Cascade: remove all attachments belonging to this transaction.
   // Fire-and-forget — IDB failure here doesn't undo the transaction delete.
+  state.txIdsWithAttachments.delete(id);
   attDB.getByTransaction(id).then(files => {
     return Promise.all(files.map(f => attDB.remove(f.id)));
   }).catch(err => console.warn('Cascade attachment delete failed:', err));
@@ -2735,6 +2747,7 @@ function renderTransactions() {
       html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
       for (const t of list) {
         const info = describeTransaction(t);
+        const hasAtt = state.txIdsWithAttachments.has(t.id);
         html += `
           <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
             <span class="dot" style="background:${info.dotColor}"></span>
@@ -2743,7 +2756,7 @@ function renderTransactions() {
                 <span class="name">${escapeHtml(info.label)}</span>
                 ${info.amountHtml}
               </div>
-              ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
+              ${(info.metaHtml || hasAtt) ? `<div class="meta">${info.metaHtml || ''}${hasAtt ? '<span class="att-badge">📎</span>' : ''}</div>` : ''}
             </div>
           </div>
         `;
@@ -3109,6 +3122,7 @@ function renderAccountDetail() {
       html += `<div class="date-head">${fmtDateLabel(date)}</div>`;
       for (const t of list) {
         const info = describeTransaction(t, { hideAccountInMeta: true });
+        const hasAtt = state.txIdsWithAttachments.has(t.id);
         html += `
           <div class="tx-row" data-action="open-tx-detail" data-id="${t.id}">
             <span class="dot" style="background:${info.dotColor}"></span>
@@ -3117,7 +3131,7 @@ function renderAccountDetail() {
                 <span class="name">${escapeHtml(info.label)}</span>
                 ${info.amountHtml}
               </div>
-              ${info.metaHtml ? `<div class="meta">${info.metaHtml}</div>` : ''}
+              ${(info.metaHtml || hasAtt) ? `<div class="meta">${info.metaHtml || ''}${hasAtt ? '<span class="att-badge">📎</span>' : ''}</div>` : ''}
             </div>
           </div>
         `;
@@ -4073,6 +4087,56 @@ function renderAttRow(a) {
   `;
 }
 
+// Pending attachments inside the new-tx form. These are raw File objects
+// kept in memory until the user saves. No IDB writes yet — so no view button
+// (Android can preview via the form's source picker if needed).
+function renderPendingAttachments(f) {
+  const pending = f.pendingAttachments || [];
+  return `
+    <input type="file" id="att-new-camera-input" accept="image/*" capture="environment" multiple style="display:none">
+    <input type="file" id="att-new-file-input" accept="*" multiple style="display:none">
+
+    <div class="att-section">
+      <div class="att-section-head">Вкладення${pending.length ? ` · ${pending.length}` : ''}</div>
+
+      <div class="att-buttons">
+        <button class="att-btn" data-action="att-new-pick-camera">📷 Сфоткати</button>
+        <button class="att-btn" data-action="att-new-pick-file">📎 Файл</button>
+      </div>
+
+      ${pending.length ? `
+        <div class="att-list">
+          ${pending.map((p, idx) => renderPendingRow(p, idx)).join('')}
+        </div>
+        <div style="font-size: 10px; color: var(--text-3); margin-top: 6px; font-style: italic;">
+          Файли збережуться разом із транзакцією при натисканні «${f.editingId ? 'Оновити' : 'Зберегти'}».
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderPendingRow(p, idx) {
+  const isImage = (p.mime || '').startsWith('image/');
+  const isPdf = p.mime === 'application/pdf';
+  const icon = isImage ? '' : isPdf ? '📄' : '📎';
+  const thumb = isImage && p.thumbUrl
+    ? `<img src="${p.thumbUrl}" alt="">`
+    : `<span>${icon}</span>`;
+  return `
+    <div class="att-row">
+      <div class="att-thumb">${thumb}</div>
+      <div class="att-info">
+        <div class="att-info-name">${escapeHtml(p.name)}</div>
+        <div class="att-info-meta">${fmtBytes(p.size)}</div>
+      </div>
+      <div class="att-actions">
+        <button class="att-del" data-action="att-new-remove" data-id="${idx}">×</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderTxDetail() {
   const t = state.modalCtx;
   if (!t) return '';
@@ -4307,6 +4371,8 @@ function renderNewTxModal() {
             <div class="field-label"><span class="lbl">Примітка</span><span class="opt">опційно</span></div>
             <input class="input" type="text" placeholder="" value="${escapeAttr(f.note || '')}" data-form="note">
           </div>
+
+          ${renderPendingAttachments(f)}
 
         </div>
         <div class="sheet-foot">
@@ -4665,6 +4731,9 @@ function closeModalOrBack() {
   state.attachingToTxId = null;
   state.attDeleteArmed = null;
 
+  // Revoke pending attachment thumbnails from the new-tx form (if any).
+  revokePendingThumbs(state.modalForm && state.modalForm.pendingAttachments);
+
   if (state.pendingTx) {
     state.modal = 'newTx';
     state.modalForm = state.pendingTx;
@@ -4799,6 +4868,11 @@ function setupEvents() {
       const txId = state.attachingToTxId;
       handleAttPicked(txId, Array.from(e.target.files));
     }
+    // Stage 2b attachment inputs for new-tx form (pending, in-memory)
+    if ((e.target.id === 'att-new-camera-input' || e.target.id === 'att-new-file-input')
+        && e.target.files && e.target.files.length) {
+      addPendingAttachments(Array.from(e.target.files));
+    }
   });
 
   // Blur on rate inputs — save the new rate when user finishes editing.
@@ -4897,7 +4971,8 @@ function handleAction(action, key, id, trigger) {
         toAmountEdited: true,
         eventId: tx.eventId || '',
         isScheduled: isScheduled(tx),
-        note: tx.note || ''
+        note: tx.note || '',
+        pendingAttachments: []
       };
       vibrate(10);
       render();
@@ -4951,7 +5026,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: '', categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '', pendingAttachments: [] };
       vibrate(10);
       render();
       break;
@@ -4964,7 +5039,7 @@ function handleAction(action, key, id, trigger) {
         return;
       }
       state.modal = 'newTx';
-      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '' };
+      state.modalForm = { type: 'Expense', date: todayISO(), amount: '', accountId: id, categoryId: '', toAccountId: '', toAmount: '', toAmountEdited: false, eventId: '', isScheduled: false, note: '', pendingAttachments: [] };
       vibrate(10);
       render();
       break;
@@ -5175,15 +5250,29 @@ function handleAction(action, key, id, trigger) {
         eventId: f.eventId || null,
         scheduledFor: f.isScheduled ? f.date : null
       };
+      let txId;
       if (f.editingId) {
         updateTransaction(f.editingId, payload);
+        txId = f.editingId;
       } else {
-        createTransaction(payload);
+        const created = createTransaction(payload);
+        txId = created.id;
       }
+      // Hand off pending attachments — bind them to the saved tx id.
+      // We capture the list and revoke URLs synchronously, then process
+      // asynchronously so the modal closes immediately.
+      const pending = (f.pendingAttachments || []).slice();
+      // Revoke preview URLs — IDB writes happen with the raw File objects.
+      revokePendingThumbs(f.pendingAttachments);
       state.modal = null;
       state.modalForm = {};
       vibrate([10, 40, 30]);
       render();
+      if (pending.length) {
+        commitPendingAttachments(txId, pending).then(added => {
+          if (added > 0) render();  // refresh the list so the 📎 badge appears
+        });
+      }
       break;
     }
 
@@ -5621,10 +5710,16 @@ function handleAction(action, key, id, trigger) {
         state.attDeleteArmed = null;
         attDB.remove(id).then(() => {
           const idx = state.txDetailAttachments.findIndex(a => a.id === id);
+          let txIdOfDeleted = null;
           if (idx >= 0) {
             const a = state.txDetailAttachments[idx];
+            txIdOfDeleted = a.transactionId;
             if (a.thumbUrl) URL.revokeObjectURL(a.thumbUrl);
             state.txDetailAttachments.splice(idx, 1);
+          }
+          // If this tx no longer has any attachments, clear its badge.
+          if (txIdOfDeleted && state.txDetailAttachments.length === 0) {
+            state.txIdsWithAttachments.delete(txIdOfDeleted);
           }
           vibrate([20, 30, 20]);
           render();
@@ -5643,6 +5738,33 @@ function handleAction(action, key, id, trigger) {
           }
         }, 3000);
       }
+      break;
+    }
+
+    /* ========== Stage 2b — pending attachments in new-tx form ========== */
+
+    case 'att-new-pick-camera': {
+      const input = document.getElementById('att-new-camera-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'att-new-pick-file': {
+      const input = document.getElementById('att-new-file-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'att-new-remove': {
+      // `id` here is the index in pendingAttachments (as a string).
+      const idx = parseInt(id, 10);
+      const list = state.modalForm.pendingAttachments;
+      if (!list || isNaN(idx) || idx < 0 || idx >= list.length) break;
+      const item = list[idx];
+      if (item.thumbUrl) URL.revokeObjectURL(item.thumbUrl);
+      list.splice(idx, 1);
+      vibrate([20, 30]);
+      render();
       break;
     }
 
@@ -5757,7 +5879,84 @@ async function handleAttPicked(txId, files) {
   }
   state.txDetailUploading = false;
   state.attachingToTxId = null;
+  // Update the badge index — this tx now definitely has attachments.
+  if (added > 0) state.txIdsWithAttachments.add(txId);
   vibrate(added > 0 ? [20, 30, 20] : 30);
+  render();
+  if (skipped > 0) console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
+}
+
+/* ============================================================
+   Stage 2b — global attachments index + new-tx pending files
+   ============================================================ */
+
+async function loadAttachmentsIndex() {
+  // Build a Set of tx ids that have at least one attachment.
+  // This powers the 📎 badge in the transaction list.
+  try {
+    const all = await attDB.getAll();
+    const ids = new Set();
+    for (const a of all) {
+      if (a.transactionId) ids.add(a.transactionId);
+    }
+    state.txIdsWithAttachments = ids;
+    render();
+  } catch (e) {
+    console.error('loadAttachmentsIndex failed', e);
+  }
+}
+
+// Convert raw File objects (chosen in the new-tx form, kept in memory) into
+// IDB attachment records bound to the freshly-saved transaction.
+async function commitPendingAttachments(txId, pendingList) {
+  if (!txId || !pendingList || !pendingList.length) return 0;
+  const MAX_SIZE = 20 * 1024 * 1024;
+  let added = 0;
+  for (const item of pendingList) {
+    const file = item.file;
+    if (!file || file.size === 0 || file.size > MAX_SIZE) continue;
+    try {
+      await attDB.add(file, txId);
+      added++;
+    } catch (e) {
+      console.error('Pending attachment commit failed', e);
+    }
+  }
+  if (added > 0) state.txIdsWithAttachments.add(txId);
+  return added;
+}
+
+// Revoke object URLs created for pending file thumbnails.
+function revokePendingThumbs(pendingList) {
+  if (!pendingList) return;
+  for (const item of pendingList) {
+    if (item.thumbUrl) URL.revokeObjectURL(item.thumbUrl);
+  }
+}
+
+// User picked files in the new-tx form — stash them in memory along with a
+// preview URL (for images). No IDB writes here; that happens on save.
+function addPendingAttachments(files) {
+  const MAX_SIZE = 20 * 1024 * 1024;
+  const list = state.modalForm.pendingAttachments;
+  if (!list) {
+    // Form may have been closed between picker open and select — bail.
+    return;
+  }
+  let added = 0, skipped = 0;
+  for (const file of files) {
+    if (!file || file.size === 0 || file.size > MAX_SIZE) { skipped++; continue; }
+    const isImage = (file.type || '').startsWith('image/');
+    list.push({
+      file,
+      name: file.name || 'unnamed',
+      mime: file.type || 'application/octet-stream',
+      size: file.size,
+      thumbUrl: isImage ? URL.createObjectURL(file) : null
+    });
+    added++;
+  }
+  vibrate(added > 0 ? [20, 30] : 30);
   render();
   if (skipped > 0) console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
 }
@@ -5774,10 +5973,11 @@ render();
 setupEvents();
 setupSwipe();
 
-// Stage 1 — open attachments DB and load file list so the test tab is populated.
+// Stage 1+2 — open attachments DB, then load the file list for the test tab
+// and build the global index of tx ids that have attachments (for the 📎 badge).
 // Errors are non-fatal: the rest of the app works without attachments.
 attDB.open()
-  .then(() => refreshTestData())
+  .then(() => Promise.all([refreshTestData(), loadAttachmentsIndex()]))
   .catch(err => console.warn('attDB init failed:', err));
 
 // React to system theme changes if user is on 'system' mode
