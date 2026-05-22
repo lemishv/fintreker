@@ -1159,6 +1159,101 @@
   }
   .add-btn:active { border-color: var(--accent); color: var(--accent); }
 
+  /* ATTACHMENTS (in tx-detail) */
+  .att-section { margin-top: 18px; }
+  .att-section-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+  }
+  .att-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .att-btn {
+    padding: 10px 12px;
+    background: transparent;
+    border: 1px dashed var(--border-2);
+    border-radius: 8px;
+    color: var(--text-2);
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: all 0.15s;
+  }
+  .att-btn:active { border-color: var(--accent); color: var(--accent); }
+  .att-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .att-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .att-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-3);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .att-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .att-info { flex: 1; min-width: 0; }
+  .att-info-name {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .att-info-meta {
+    font-size: 10px;
+    color: var(--text-3);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .att-actions { display: flex; gap: 4px; align-items: center; }
+  .att-actions button {
+    font-size: 11px;
+    padding: 5px 8px;
+    border: 1px solid var(--border-2);
+    border-radius: 5px;
+    color: var(--text-2);
+    line-height: 1;
+  }
+  .att-del { color: var(--danger) !important; }
+  .att-del-armed {
+    background: var(--danger);
+    color: var(--bg) !important;
+    border-color: var(--danger) !important;
+    font-weight: 600;
+    padding: 5px 10px !important;
+  }
+  .att-loading {
+    color: var(--text-3);
+    font-size: 12px;
+    font-style: italic;
+    padding: 8px 0;
+  }
+
   /* DATE GROUP HEADER (in transactions list) */
   .date-head {
     font-size: 10px;
@@ -1827,7 +1922,13 @@ const state = {
   testRefreshing: false,   // true while refresh is in flight
   testPersistedAt: null,   // timestamp of last persistence query via button
   testPersisting: false,   // true while persistence request is in flight
-  testError: null          // last error message from refresh/persist
+  testError: null,         // last error message from refresh/persist
+  // Stage 2a — attachments inside tx-detail modal:
+  txDetailAttachments: [], // [{ id, transactionId, name, mime, size, blob, addedAt, thumbUrl? }]
+  txDetailLoading: false,  // true while loading the list for the open tx
+  txDetailUploading: false,// true while a new file is being processed and saved
+  attachingToTxId: null,   // which tx the file picker is currently adding to
+  attDeleteArmed: null     // id of attachment whose delete button is in confirm state
 };
 
 /* ============================================================
@@ -2387,6 +2488,11 @@ function updateTransaction(id, { date, type, amount, accountId, categoryId, note
 function deleteTransaction(id) {
   state.data.transactions = state.data.transactions.filter(t => t.id !== id);
   saveData();
+  // Cascade: remove all attachments belonging to this transaction.
+  // Fire-and-forget — IDB failure here doesn't undo the transaction delete.
+  attDB.getByTransaction(id).then(files => {
+    return Promise.all(files.map(f => attDB.remove(f.id)));
+  }).catch(err => console.warn('Cascade attachment delete failed:', err));
 }
 
 function confirmScheduledTransaction(id) {
@@ -3913,6 +4019,60 @@ function renderConfirmArchiveCat() {
   `;
 }
 
+function renderTxDetailAttachments(txId) {
+  const atts = state.txDetailAttachments;
+  const loading = state.txDetailLoading;
+  const uploading = state.txDetailUploading;
+
+  return `
+    <input type="file" id="att-camera-input" accept="image/*" capture="environment" multiple style="display:none">
+    <input type="file" id="att-file-input" accept="*" multiple style="display:none">
+
+    <div class="att-section">
+      <div class="att-section-head">Вкладення${atts.length ? ` · ${atts.length}` : ''}</div>
+
+      <div class="att-buttons">
+        <button class="att-btn" data-action="att-pick-camera" data-id="${txId}" ${uploading ? 'disabled' : ''}>📷 Сфоткати</button>
+        <button class="att-btn" data-action="att-pick-file" data-id="${txId}" ${uploading ? 'disabled' : ''}>📎 Файл</button>
+      </div>
+
+      ${uploading ? `<div class="att-loading">⏳ Обробляю файл…</div>` : ''}
+      ${loading && !uploading ? `<div class="att-loading">Завантажую…</div>` : ''}
+
+      ${atts.length ? `
+        <div class="att-list">
+          ${atts.map(a => renderAttRow(a)).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderAttRow(a) {
+  const isImage = (a.mime || '').startsWith('image/');
+  const isPdf = a.mime === 'application/pdf';
+  const armed = state.attDeleteArmed === a.id;
+  const icon = isImage ? '' : isPdf ? '📄' : '📎';
+  const thumb = isImage && a.thumbUrl
+    ? `<img src="${a.thumbUrl}" alt="">`
+    : `<span>${icon}</span>`;
+  return `
+    <div class="att-row">
+      <div class="att-thumb">${thumb}</div>
+      <div class="att-info">
+        <div class="att-info-name">${escapeHtml(a.name)}</div>
+        <div class="att-info-meta">${fmtBytes(a.size)}</div>
+      </div>
+      <div class="att-actions">
+        <button data-action="att-view" data-id="${a.id}">Відкрити</button>
+        ${armed
+          ? `<button class="att-del-armed" data-action="att-delete" data-id="${a.id}">Видалити?</button>`
+          : `<button class="att-del" data-action="att-delete" data-id="${a.id}">×</button>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderTxDetail() {
   const t = state.modalCtx;
   if (!t) return '';
@@ -3965,6 +4125,8 @@ function renderTxDetail() {
                 </div>
               ` : ''}
             </div>
+
+            ${renderTxDetailAttachments(t.id)}
 
             ${(!isScheduled(t) && !t.recurringRuleId) ? `
               <button class="recurring-btn" data-action="open-make-recurring" data-id="${t.id}">${ICONS.repeat} Зробити повторюваним</button>
@@ -4034,6 +4196,8 @@ function renderTxDetail() {
               </div>
             ` : ''}
           </div>
+
+          ${renderTxDetailAttachments(t.id)}
 
           ${(!isScheduled(t) && t.type !== 'Opening' && t.type !== 'Transfer' && !t.recurringRuleId) ? `
             <button class="recurring-btn" data-action="open-make-recurring" data-id="${t.id}">${ICONS.repeat} Зробити повторюваною</button>
@@ -4491,6 +4655,16 @@ function escapeAttr(s) { return escapeHtml(s); }
    ============================================================ */
 
 function closeModalOrBack() {
+  // Revoke any blob URLs we created for thumbnails to avoid memory leaks.
+  for (const a of state.txDetailAttachments) {
+    if (a.thumbUrl) URL.revokeObjectURL(a.thumbUrl);
+  }
+  state.txDetailAttachments = [];
+  state.txDetailLoading = false;
+  state.txDetailUploading = false;
+  state.attachingToTxId = null;
+  state.attDeleteArmed = null;
+
   if (state.pendingTx) {
     state.modal = 'newTx';
     state.modalForm = state.pendingTx;
@@ -4619,6 +4793,12 @@ function setupEvents() {
         && e.target.files && e.target.files.length) {
       handleTestFilesPicked(Array.from(e.target.files));
     }
+    // Stage 2a attachment inputs for tx-detail
+    if ((e.target.id === 'att-camera-input' || e.target.id === 'att-file-input')
+        && e.target.files && e.target.files.length) {
+      const txId = state.attachingToTxId;
+      handleAttPicked(txId, Array.from(e.target.files));
+    }
   });
 
   // Blur on rate inputs — save the new rate when user finishes editing.
@@ -4696,6 +4876,8 @@ function handleAction(action, key, id, trigger) {
       state.modalCtx = tx;
       vibrate(10);
       render();
+      // Load attachments for this transaction (async, will re-render when done).
+      loadTxAttachments(tx.id);
       break;
     }
 
@@ -5403,6 +5585,67 @@ function handleAction(action, key, id, trigger) {
       break;
     }
 
+    /* ========== Stage 2a — attachments in tx-detail ========== */
+
+    case 'att-pick-camera': {
+      state.attachingToTxId = id;
+      const input = document.getElementById('att-camera-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'att-pick-file': {
+      state.attachingToTxId = id;
+      const input = document.getElementById('att-file-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'att-view': {
+      const att = state.txDetailAttachments.find(a => a.id === id);
+      if (!att) break;
+      // Open in a new tab — browser handles preview (image, PDF) natively.
+      const url = URL.createObjectURL(att.blob);
+      window.open(url, '_blank');
+      // Revoke after a delay so the new tab has time to load.
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      vibrate(8);
+      break;
+    }
+
+    case 'att-delete': {
+      // Two-step confirmation: first tap arms the delete, second tap within
+      // 3s actually removes the file. Avoids accidental loss without needing
+      // a full modal dialog.
+      if (state.attDeleteArmed === id) {
+        state.attDeleteArmed = null;
+        attDB.remove(id).then(() => {
+          const idx = state.txDetailAttachments.findIndex(a => a.id === id);
+          if (idx >= 0) {
+            const a = state.txDetailAttachments[idx];
+            if (a.thumbUrl) URL.revokeObjectURL(a.thumbUrl);
+            state.txDetailAttachments.splice(idx, 1);
+          }
+          vibrate([20, 30, 20]);
+          render();
+        }).catch(err => {
+          console.error('Attachment delete failed:', err);
+          vibrate(30);
+        });
+      } else {
+        state.attDeleteArmed = id;
+        vibrate(8);
+        render();
+        setTimeout(() => {
+          if (state.attDeleteArmed === id) {
+            state.attDeleteArmed = null;
+            render();
+          }
+        }, 3000);
+      }
+      break;
+    }
+
     case 'close-modal':
       closeModalOrBack();
       render();
@@ -5458,6 +5701,65 @@ async function handleTestFilesPicked(files) {
   if (skipped > 0) {
     console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
   }
+}
+
+/* ============================================================
+   Stage 2a — tx-detail attachment helpers
+   ============================================================ */
+
+async function loadTxAttachments(txId) {
+  // Revoke any previously created blob URLs.
+  for (const a of state.txDetailAttachments) {
+    if (a.thumbUrl) URL.revokeObjectURL(a.thumbUrl);
+  }
+  state.txDetailAttachments = [];
+  state.txDetailLoading = true;
+  state.attDeleteArmed = null;
+  render();
+  try {
+    const files = await attDB.getByTransaction(txId);
+    state.txDetailAttachments = files
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .map(f => ({
+        ...f,
+        // Pre-create thumb URLs for images so render is cheap.
+        thumbUrl: (f.mime || '').startsWith('image/') ? URL.createObjectURL(f.blob) : null
+      }));
+  } catch (e) {
+    console.error('loadTxAttachments failed', e);
+  } finally {
+    state.txDetailLoading = false;
+    render();
+  }
+}
+
+async function handleAttPicked(txId, files) {
+  if (!txId || !files || !files.length) return;
+  const MAX_SIZE = 20 * 1024 * 1024; // 20 MB per file
+  state.txDetailUploading = true;
+  render();
+  let added = 0;
+  let skipped = 0;
+  for (const file of files) {
+    if (!file || file.size === 0 || file.size > MAX_SIZE) { skipped++; continue; }
+    try {
+      const record = await attDB.add(file, txId);
+      // Prepend so newest appears first, matching the load order.
+      state.txDetailAttachments.unshift({
+        ...record,
+        thumbUrl: (record.mime || '').startsWith('image/') ? URL.createObjectURL(record.blob) : null
+      });
+      added++;
+    } catch (e) {
+      console.error('attDB.add failed', e);
+      skipped++;
+    }
+  }
+  state.txDetailUploading = false;
+  state.attachingToTxId = null;
+  vibrate(added > 0 ? [20, 30, 20] : 30);
+  render();
+  if (skipped > 0) console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
 }
 
 /* ============================================================
