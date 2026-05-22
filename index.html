@@ -685,6 +685,7 @@
   .stab-bar button.active { background: var(--bg); color: var(--text); }
 
   .stab-bar.stab-bar-4 button { font-size: 10px; padding: 9px 0; }
+  .stab-bar.stab-bar-5 button { font-size: 9px; padding: 9px 0; letter-spacing: 0.02em; }
 
   .events-explainer {
     margin-top: 22px;
@@ -1409,6 +1410,199 @@ function downloadFile(filename, content) {
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
+/* ============================================================
+   ATTACHMENTS — IndexedDB storage layer
+   ============================================================
+   Files live in their own IndexedDB database, separate from the
+   main localStorage state. This keeps binary data out of the JSON
+   blob and gives us hundreds of MB of room instead of ~5 MB.
+   ============================================================ */
+const attDB = (() => {
+  const DB_NAME = 'fin-attachments';
+  const DB_VERSION = 1;
+  const STORE = 'attachments';
+  let _db = null;
+  let _openPromise = null;
+
+  function open() {
+    if (_db) return Promise.resolve(_db);
+    if (_openPromise) return _openPromise;
+    _openPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          const store = db.createObjectStore(STORE, { keyPath: 'id' });
+          // Index lets us find all files for a given transaction quickly.
+          store.createIndex('by_transaction', 'transactionId');
+        }
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+    return _openPromise;
+  }
+
+  async function add(file, transactionId) {
+    // Compress images before storage; other file types are stored as-is.
+    const processed = await compressIfImage(file);
+    const record = {
+      id: 'att_' + uid(),
+      transactionId: transactionId || null,
+      name: file.name || 'unnamed',
+      mime: processed.type || file.type || 'application/octet-stream',
+      size: processed.size,
+      blob: processed,
+      addedAt: Date.now()
+    };
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).add(record);
+      tx.oncomplete = () => resolve(record);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getByTransaction(transactionId) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const idx = tx.objectStore(STORE).index('by_transaction');
+      const req = idx.getAll(transactionId);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function get(id) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function remove(id) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getAll() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function clear() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  return { open, add, get, getByTransaction, getAll, remove, clear };
+})();
+
+/* ============================================================
+   IMAGE COMPRESSION
+   ============================================================
+   Resize down to maxDim on the longer side and re-encode as JPEG.
+   For docs/receipts at 1600px / 0.8 quality a typical 3-4 MB photo
+   shrinks to 200-500 KB while staying easily readable.
+   ============================================================ */
+async function compressIfImage(file, maxDim = 1600, quality = 0.8) {
+  if (!file || !file.type) return file;
+  if (!file.type.startsWith('image/')) return file;
+  // Animated GIFs would lose animation through canvas — keep them as-is.
+  if (file.type === 'image/gif') return file;
+  // Already small enough that compression would make things worse.
+  if (file.size < 200 * 1024) return file;
+
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        // If compression somehow made it bigger, keep the original.
+        if (blob && blob.size < file.size) {
+          // Preserve the original name by attaching it as a property.
+          // (We store name separately in the DB record anyway.)
+          resolve(blob);
+        } else {
+          resolve(file);
+        }
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
+/* ============================================================
+   STORAGE — persistence & quota
+   ============================================================
+   navigator.storage.persist() asks the browser not to evict our
+   data under disk pressure. Standalone PWAs usually get this
+   automatically; Chrome in a tab may refuse.
+   ============================================================ */
+async function requestPersistence() {
+  if (!navigator.storage || !navigator.storage.persist) {
+    return { supported: false, persistent: false };
+  }
+  try {
+    const already = await navigator.storage.persisted();
+    if (already) return { supported: true, persistent: true };
+    const granted = await navigator.storage.persist();
+    return { supported: true, persistent: !!granted };
+  } catch (e) {
+    return { supported: true, persistent: false, error: String(e) };
+  }
+}
+
+async function storageEstimate() {
+  if (!navigator.storage || !navigator.storage.estimate) return null;
+  try {
+    return await navigator.storage.estimate();
+  } catch (e) {
+    return null;
+  }
+}
+
+function fmtBytes(n) {
+  if (n == null) return '—';
+  if (n < 1024) return n + ' Б';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' КБ';
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' МБ';
+  return (n / (1024 * 1024 * 1024)).toFixed(2) + ' ГБ';
+}
+
 function setupSwipe() {
   const TAB_ORDER = ['transactions', 'accounts', 'stats', 'settings'];
   // Minimum horizontal distance (px) to count as a swipe
@@ -1417,8 +1611,11 @@ function setupSwipe() {
   const MAX_VERTICAL = 60;
   // Edge-swipe-back: must start within this many px from left edge
   const EDGE_WIDTH = 30;
+  // Mirror dead zone on the right edge — Android back-gesture lives there,
+  // so we ignore swipes that start in this strip and let the system handle them.
+  const RIGHT_EDGE_DEAD_ZONE = 30;
 
-  let startX = 0, startY = 0, startT = 0, startedAtEdge = false, tracking = false;
+  let startX = 0, startY = 0, startT = 0, startedAtEdge = false, startedNearRightEdge = false, tracking = false;
 
   document.addEventListener('touchstart', (e) => {
     // Don't intercept if a modal is open — modals have their own scroll context
@@ -1430,6 +1627,7 @@ function setupSwipe() {
     startY = t.clientY;
     startT = Date.now();
     startedAtEdge = startX < EDGE_WIDTH;
+    startedNearRightEdge = startX > window.innerWidth - RIGHT_EDGE_DEAD_ZONE;
     tracking = true;
   }, { passive: true });
 
@@ -1451,6 +1649,16 @@ function setupSwipe() {
 
     // Edge-swipe-from-left = back gesture (works in account detail)
     if (dx > 0 && startedAtEdge && state.subView) {
+      state.subView = null;
+      vibrate(8);
+      render();
+      return;
+    }
+
+    // Right-to-left swipe inside a sub-view = back.
+    // Must NOT start in the right-edge dead zone (that belongs to Android's
+    // system back gesture). Anywhere else on the screen is fair game.
+    if (dx < 0 && state.subView && !startedNearRightEdge) {
       state.subView = null;
       vibrate(8);
       render();
@@ -1609,7 +1817,12 @@ const state = {
   modal: null,             // null | newTx | newAcc | newCat | txDetail | confirmDelTx | confirmDelAcc | confirmDelCat | infoBlocked
   modalCtx: null,          // arbitrary data for modal
   modalForm: {},           // current values in the open modal
-  pendingTx: null          // when creating category from tx-form, holds the tx form to return to
+  pendingTx: null,         // when creating category from tx-form, holds the tx form to return to
+  // Stage 1 — attachments smoke-test (will be removed in Stage 2):
+  testFiles: [],           // cached list of attachments shown in Test settings tab
+  testQuota: null,         // last storage estimate { usage, quota }
+  testPersistent: null,    // null until requested; then true/false
+  testBusy: false          // true while files are being added
 };
 
 /* ============================================================
@@ -2932,16 +3145,18 @@ function renderSettings() {
     <div class="view-title serif">Налаштування</div>
     <div class="view-sub">Категорії, курси, бекап</div>
 
-    <div class="stab-bar stab-bar-4">
+    <div class="stab-bar stab-bar-5">
       <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
       <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
       <button class="${state.settingsTab === 'backup' ? 'active' : ''}" data-action="stab" data-key="backup">Бекап</button>
+      <button class="${state.settingsTab === 'test' ? 'active' : ''}" data-action="stab" data-key="test">🧪 Тест</button>
       <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про</button>
     </div>
 
     ${state.settingsTab === 'categories' ? renderCategoriesSettings()
      : state.settingsTab === 'rates' ? renderRatesSettings()
      : state.settingsTab === 'backup' ? renderBackupSettings()
+     : state.settingsTab === 'test' ? renderTestSettings()
      : renderAboutSettings()}
   `;
 }
@@ -2972,6 +3187,87 @@ function renderBackupSettings() {
       <button class="add-btn" data-action="export-csv">⬇ Експортувати CSV</button>
       <div style="font-size: 11px; color: var(--text-3); margin-top: 6px; font-style: italic;">Три файли для аналізу в Google Sheets. Не використовується для відновлення — для цього є бекап вище.</div>
     </section>
+  `;
+}
+
+/* ============================================================
+   TEST SETTINGS — temporary smoke-test for the attachments layer.
+   Will be removed once attachments are wired into transactions
+   in Stage 2.
+   ============================================================ */
+function renderTestSettings() {
+  const files = state.testFiles || [];
+  const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+  const q = state.testQuota;
+  const persistTxt = state.testPersistent === null
+    ? '<span class="muted">не запитано</span>'
+    : state.testPersistent
+      ? '<span style="color: var(--income)">так, гарантовано не видалиться</span>'
+      : '<span style="color: var(--expense)">ні, браузер може видалити</span>';
+
+  return `
+    <section style="margin-top: 6px;">
+      <div class="section-head">🧪 Тест вкладень (Етап 1)</div>
+      <div style="font-size: 12px; color: var(--text-2); line-height: 1.5; margin-bottom: 14px;">
+        Тимчасова сторінка для перевірки фундаменту. Тут можна додавати файли «в порожнечу» (без прив'язки до транзакції), переглядати їх і видаляти. У наступному етапі прикріплення з'являться всередині транзакцій.
+      </div>
+
+      <input type="file" id="test-file-input" accept="*" multiple style="display:none">
+      <input type="file" id="test-photo-input" accept="image/*" capture="environment" multiple style="display:none">
+      <input type="file" id="test-gallery-input" accept="image/*" multiple style="display:none">
+
+      <button class="add-btn" data-action="test-pick-camera" style="border-color: var(--accent); color: var(--accent);">📷 Зробити фото</button>
+      <button class="add-btn" data-action="test-pick-gallery">🖼️ Вибрати з галереї</button>
+      <button class="add-btn" data-action="test-pick-file">📎 Додати файл</button>
+    </section>
+
+    <section>
+      <div class="section-head">Сховище</div>
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.7;">
+        <div>Файлів: <strong>${files.length}</strong></div>
+        <div>Загальний розмір: <strong>${fmtBytes(totalSize)}</strong></div>
+        <div>Persistence: ${persistTxt}</div>
+        ${q ? `
+          <div>Використано в браузері: <strong>${fmtBytes(q.usage)}</strong> з ${fmtBytes(q.quota)} (${q.quota ? ((q.usage / q.quota) * 100).toFixed(1) : '—'}%)</div>
+        ` : `<div class="muted">Квота: натисни «Оновити» нижче</div>`}
+      </div>
+      <button class="add-btn" data-action="test-refresh-stats" style="margin-top: 10px;">🔄 Оновити статус</button>
+      <button class="add-btn" data-action="test-request-persist">🔒 Запитати persistence</button>
+    </section>
+
+    <section>
+      <div class="section-head">Збережені файли</div>
+      ${files.length === 0 ? `
+        <div style="color: var(--text-3); font-size: 13px; padding: 14px 4px; font-style: italic;">Поки порожньо. Додай файл вище — і він з'явиться тут.</div>
+      ` : `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${files.map(f => renderTestFileRow(f)).join('')}
+        </div>
+        <button class="add-btn danger" data-action="test-clear-all" style="margin-top: 14px; border-color: var(--danger); color: var(--danger);">🗑️ Видалити всі файли</button>
+      `}
+    </section>
+
+    <section>
+      <div style="font-size: 11px; color: var(--text-3); line-height: 1.6; padding: 10px 4px;">
+        Що перевіряємо: фото з камери стискається до &lt;500 КБ, PDF зберігається як є, файл відкривається через «Переглянути», після перезапуску додатку дані лишаються на місці.
+      </div>
+    </section>
+  `;
+}
+
+function renderTestFileRow(f) {
+  const isImage = (f.mime || '').startsWith('image/');
+  const date = new Date(f.addedAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+      <div style="font-size: 22px; flex-shrink: 0;">${isImage ? '🖼️' : f.mime === 'application/pdf' ? '📄' : '📎'}</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.name)}</div>
+        <div style="font-size: 11px; color: var(--text-3); margin-top: 2px;">${fmtBytes(f.size)} · ${escapeHtml(f.mime || '?')} · ${date}</div>
+      </div>
+      <button data-action="test-view-file" data-id="${f.id}" style="font-size: 11px; padding: 6px 10px; border: 1px solid var(--border-2); border-radius: 6px; color: var(--text-2);">Відкрити</button>
+      <button data-action="test-delete-file" data-id="${f.id}" style="font-size: 16px; padding: 4px 8px; color: var(--danger);">×</button>
+    </div>
   `;
 }
 
@@ -4304,6 +4600,11 @@ function setupEvents() {
       state.pendingImportFile = e.target.files[0];
       handleAction('confirm-import-backup');
     }
+    // Stage 1 test inputs
+    if ((e.target.id === 'test-file-input' || e.target.id === 'test-photo-input' || e.target.id === 'test-gallery-input')
+        && e.target.files && e.target.files.length) {
+      handleTestFilesPicked(Array.from(e.target.files));
+    }
   });
 
   // Blur on rate inputs — save the new rate when user finishes editing.
@@ -5009,10 +5310,122 @@ function handleAction(action, key, id, trigger) {
       render();
       break;
 
+    /* ========== Stage 1 — attachments smoke-test ========== */
+
+    case 'test-pick-camera': {
+      const input = document.getElementById('test-photo-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'test-pick-gallery': {
+      const input = document.getElementById('test-gallery-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'test-pick-file': {
+      const input = document.getElementById('test-file-input');
+      if (input) { input.value = ''; input.click(); }
+      break;
+    }
+
+    case 'test-refresh-stats': {
+      refreshTestData();
+      vibrate(8);
+      break;
+    }
+
+    case 'test-request-persist': {
+      requestPersistence().then((res) => {
+        state.testPersistent = res.supported ? res.persistent : false;
+        vibrate(8);
+        render();
+      });
+      break;
+    }
+
+    case 'test-view-file': {
+      attDB.get(id).then((rec) => {
+        if (!rec || !rec.blob) return;
+        const url = URL.createObjectURL(rec.blob);
+        // Open in a new tab. Browser handles preview (image, PDF) natively.
+        window.open(url, '_blank');
+        // Revoke after a delay so the new tab has time to load.
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      });
+      vibrate(8);
+      break;
+    }
+
+    case 'test-delete-file': {
+      attDB.remove(id).then(() => {
+        state.testFiles = state.testFiles.filter(f => f.id !== id);
+        vibrate([20, 30]);
+        render();
+      });
+      break;
+    }
+
+    case 'test-clear-all': {
+      attDB.clear().then(() => {
+        state.testFiles = [];
+        vibrate([20, 30, 20]);
+        render();
+      });
+      break;
+    }
+
     case 'close-modal':
       closeModalOrBack();
       render();
       break;
+  }
+}
+
+/* ============================================================
+   TEST helpers (Stage 1 only)
+   ============================================================ */
+
+async function refreshTestData() {
+  try {
+    const [files, quota] = await Promise.all([
+      attDB.getAll(),
+      storageEstimate()
+    ]);
+    state.testFiles = files.sort((a, b) => b.addedAt - a.addedAt);
+    state.testQuota = quota;
+    if (navigator.storage && navigator.storage.persisted) {
+      state.testPersistent = await navigator.storage.persisted();
+    }
+    render();
+  } catch (e) {
+    console.error('refreshTestData failed', e);
+  }
+}
+
+async function handleTestFilesPicked(files) {
+  if (!files || !files.length) return;
+  const MAX_SIZE = 20 * 1024 * 1024; // 20 MB per file
+  state.testBusy = true;
+  let added = 0;
+  let skipped = 0;
+  for (const file of files) {
+    if (!file || file.size === 0) { skipped++; continue; }
+    if (file.size > MAX_SIZE) { skipped++; continue; }
+    try {
+      await attDB.add(file, null);
+      added++;
+    } catch (e) {
+      console.error('attDB.add failed', e);
+      skipped++;
+    }
+  }
+  state.testBusy = false;
+  await refreshTestData();
+  vibrate(added > 0 ? [20, 30, 20] : 30);
+  if (skipped > 0) {
+    console.warn(`Skipped ${skipped} file(s) — too large or empty.`);
   }
 }
 
@@ -5027,6 +5440,12 @@ generateScheduledForRules();
 render();
 setupEvents();
 setupSwipe();
+
+// Stage 1 — open attachments DB and load file list so the test tab is populated.
+// Errors are non-fatal: the rest of the app works without attachments.
+attDB.open()
+  .then(() => refreshTestData())
+  .catch(err => console.warn('attDB init failed:', err));
 
 // React to system theme changes if user is on 'system' mode
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
