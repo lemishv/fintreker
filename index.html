@@ -15,8 +15,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- JSZip — for ZIP backups that bundle JSON data + attachment blobs.
-     Loaded from CDN; will be cached by the service worker on first online use. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+     Loaded from CDN; will be cached by the service worker on first online use.
+     SRI integrity hash protects against CDN compromise: if the served bytes
+     don't match this hash, the browser refuses to execute the script (ZIP
+     backups will then silently stop working, but no malicious code runs). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
+        crossorigin="anonymous"></script>
 <style>
   /* ============================================================
      RESET & TOKENS
@@ -1332,7 +1337,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.21.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1768,11 +1773,14 @@ const attDB = (() => {
 
   async function add(file, transactionId) {
     // Compress images before storage; other file types are stored as-is.
+    // compressIfImage returns a File with name/mime kept consistent (e.g.
+    // photo.png → photo.jpg if it was re-encoded to JPEG), so we read both
+    // from `processed` rather than mixing original name with new mime.
     const processed = await compressIfImage(file);
     const record = {
       id: 'att_' + uid(),
       transactionId: transactionId || null,
-      name: file.name || 'unnamed',
+      name: processed.name || file.name || 'unnamed',
       mime: processed.type || file.type || 'application/octet-stream',
       size: processed.size,
       blob: processed,
@@ -1883,12 +1891,27 @@ async function compressIfImage(file, maxDim = 1600, quality = 0.8) {
       canvas.toBlob((blob) => {
         URL.revokeObjectURL(url);
         // If compression somehow made it bigger, keep the original.
-        if (blob && blob.size < file.size) {
-          // Preserve the original name by attaching it as a property.
-          // (We store name separately in the DB record anyway.)
-          resolve(blob);
-        } else {
+        if (!blob || blob.size >= file.size) {
           resolve(file);
+          return;
+        }
+        // Compression changed the MIME (e.g. PNG → JPEG). Keep the displayed
+        // filename consistent with the actual bytes so the UI doesn't show
+        // "photo.png" for what is in fact a JPEG. We swap the extension on
+        // the original name and re-wrap the blob as a File.
+        let newName = file.name || 'image';
+        if (blob.type && blob.type !== file.type) {
+          const ext = extForMime(blob.type);
+          const dot = newName.lastIndexOf('.');
+          const base = dot > 0 ? newName.slice(0, dot) : newName;
+          newName = base + ext;
+        }
+        try {
+          resolve(new File([blob], newName, { type: blob.type, lastModified: Date.now() }));
+        } catch (_) {
+          // File constructor unavailable in some older WebViews — fall back to
+          // the blob; downstream code reads name from the file reference.
+          resolve(blob);
         }
       }, 'image/jpeg', quality);
     };
@@ -5200,7 +5223,7 @@ function handleAction(action, key, id, trigger) {
     case 'save-tx': {
       const f = state.modalForm;
       const payload = {
-        date: f.isScheduled ? f.date : f.date,  // dates are the same either way; UI just labels them
+        date: f.date,  // for scheduled, scheduledFor below carries the same value
         type: f.type,
         amount: f.amount,
         accountId: f.accountId,
