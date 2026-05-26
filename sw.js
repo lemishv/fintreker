@@ -4,15 +4,16 @@
 //   - HTML / navigation requests: stale-while-revalidate.
 //     Cached HTML is served immediately (fast first paint), and the network
 //     copy is fetched in the background to refresh the cache for next time.
-//     When a NEW SW activates (VERSION bumped), we broadcast 'sw-updated' so
-//     the page can show a toast prompting reload.
 //   - Static assets (fonts, CDN libs): cache-first with background refresh.
 //     These rarely change and we want them instant.
 //
-// Updates: bump VERSION below to force a new cache on next deploy. The bump
-//          also drives the "new version available" toast in the app.
+// Updates: bump VERSION below to force a new cache on next deploy. The new
+//          cache key isolates the upgrade and triggers cleanup of the old one
+//          in activate. The "you've been updated" toast in the app is driven
+//          on the client side by comparing APP_VERSION against the last seen
+//          version stored in localStorage — see checkVersionUpdate() there.
 
-const VERSION = '1.21.0';
+const VERSION = '1.22.0';
 const CACHE = 'finance-' + VERSION;
 
 // Pre-cache the app shell on install.
@@ -30,17 +31,8 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     const oldKeys = keys.filter(k => k !== CACHE);
-    // If we found OLD caches to delete, this is an upgrade — not first install.
-    // We use this signal to decide whether to broadcast the "new version" toast.
-    const isUpgrade = oldKeys.length > 0;
     await Promise.all(oldKeys.map(k => caches.delete(k)));
     await self.clients.claim();
-    if (isUpgrade) {
-      const clients = await self.clients.matchAll({ includeUncontrolled: true });
-      for (const client of clients) {
-        client.postMessage({ type: 'sw-updated', version: VERSION });
-      }
-    }
   })());
 });
 

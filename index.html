@@ -1297,15 +1297,6 @@
   }
   .update-toast[hidden] { display: none; }
   .update-toast-msg { flex: 1; color: var(--text); }
-  .update-toast-reload {
-    background: var(--accent);
-    color: #0a0a0a;
-    font-weight: 600;
-    padding: 7px 14px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-family: 'JetBrains Mono', monospace;
-  }
   .update-toast-close {
     color: var(--text-3);
     font-size: 16px;
@@ -1323,10 +1314,10 @@
 <div id="app"></div>
 
 <!-- Update toast: lives outside #app so the app's render() can't remove it.
-     Shown by setupUpdateToast() when the SW broadcasts a new version. -->
+     Shown by checkVersionUpdate() when the stored last-seen version differs
+     from APP_VERSION. The message text is filled in dynamically. -->
 <div id="updateToast" class="update-toast" hidden>
-  <span class="update-toast-msg">Доступна нова версія</span>
-  <button type="button" class="update-toast-reload">Оновити</button>
+  <span class="update-toast-msg"></span>
   <button type="button" class="update-toast-close" aria-label="Закрити">✕</button>
 </div>
 
@@ -1337,7 +1328,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.22.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -2076,47 +2067,64 @@ function setupManifest() {
 
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => {
       console.warn('SW register failed:', err);
     });
   });
-
-  // The SW broadcasts 'sw-updated' from its activate handler whenever a new
-  // version (VERSION bump) replaces an existing cache. That signal drives the
-  // "new version available" toast — see setupUpdateToast() below.
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'sw-updated') {
-      showUpdateToast();
-    }
-  });
 }
 
-// Toast lives outside #app, so render() can't remove it. We bind its click
-// handlers once on startup; show/hide is just the `hidden` attribute.
+// Toast lives outside #app, so render() can't remove it. We bind the close
+// button once on startup; show/hide is just the `hidden` attribute. The
+// message text is filled in by showUpdateToast() at the moment of display.
 function setupUpdateToast() {
   const toast = document.getElementById('updateToast');
   if (!toast) return;
-  const reloadBtn = toast.querySelector('.update-toast-reload');
   const closeBtn = toast.querySelector('.update-toast-close');
-  if (reloadBtn) reloadBtn.addEventListener('click', () => {
-    // Full reload — picks up the freshly-cached HTML from the new SW.
-    window.location.reload();
-  });
   if (closeBtn) closeBtn.addEventListener('click', () => {
     hideUpdateToast();
   });
 }
 
-function showUpdateToast() {
+function showUpdateToast(version) {
   const toast = document.getElementById('updateToast');
-  if (toast) toast.hidden = false;
+  if (!toast) return;
+  const msg = toast.querySelector('.update-toast-msg');
+  if (msg) msg.textContent = `Оновлено до v${version}`;
+  toast.hidden = false;
 }
 
 function hideUpdateToast() {
   const toast = document.getElementById('updateToast');
   if (toast) toast.hidden = true;
+}
+
+// Compare current APP_VERSION against the version we last showed the user.
+// If different — they've just been upgraded; show the toast and record the
+// new version so it doesn't fire again until the next bump. We record at
+// SHOW time (not at close) so the toast notifies exactly once even if the
+// user closes the app before tapping ✕.
+//
+// First-run logic: if no record exists at all, we check whether there's any
+// existing user data. If yes, this is an upgrade from a pre-tracking build
+// and we still announce it. If not, this is a fresh install — stay silent.
+function checkVersionUpdate() {
+  const KEY = 'lastSeenVersion';
+  let last;
+  try { last = localStorage.getItem(KEY); } catch (e) { return; }
+
+  if (last === null) {
+    const hasData = (state.data.transactions && state.data.transactions.length > 0)
+                 || (state.data.accounts && state.data.accounts.length > 0);
+    if (hasData) showUpdateToast(APP_VERSION);
+    try { localStorage.setItem(KEY, APP_VERSION); } catch (e) {}
+    return;
+  }
+
+  if (last !== APP_VERSION) {
+    showUpdateToast(APP_VERSION);
+    try { localStorage.setItem(KEY, APP_VERSION); } catch (e) {}
+  }
 }
 
 function applyTheme() {
@@ -5757,6 +5765,7 @@ render();
 setupEvents();
 setupSwipe();
 setupUpdateToast();
+checkVersionUpdate();
 
 // Open the attachments IndexedDB and build the global index of tx ids that
 // have attachments (for the 📎 badge). Errors are non-fatal: the rest of the
