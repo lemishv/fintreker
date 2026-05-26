@@ -13,11 +13,11 @@
 //          on the client side by comparing APP_VERSION against the last seen
 //          version stored in localStorage — see checkVersionUpdate() there.
 
-const VERSION = '1.22.0';
+const VERSION = '1.23.0';
 const CACHE = 'finance-' + VERSION;
 
 // Pre-cache the app shell on install.
-const PRECACHE_URLS = ['./', './index.html'];
+const PRECACHE_URLS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
