@@ -12,7 +12,7 @@
 // Updates: bump VERSION below to force a new cache on next deploy. The bump
 //          also drives the "new version available" toast in the app.
 
-const VERSION = '1.18.0';
+const VERSION = '1.19.0';
 const CACHE = 'finance-' + VERSION;
 
 // Pre-cache the app shell on install.
