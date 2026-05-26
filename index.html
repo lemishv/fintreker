@@ -694,6 +694,7 @@
   .stab-bar button.active { background: var(--bg); color: var(--text); }
 
   .stab-bar.stab-bar-4 button { font-size: 10px; padding: 9px 0; }
+  .stab-bar.stab-bar-5 button { font-size: 10px; padding: 9px 0; letter-spacing: 0.02em; }
 
   .events-explainer {
     margin-top: 22px;
@@ -1285,11 +1286,66 @@
     color: var(--text);
     margin-bottom: 14px;
   }
+
+  /* ============================================================
+     UPDATE TOAST
+     ============================================================
+     Lives outside #app so the global render() doesn't blow it away.
+     Triggered by the SW posting 'sw-updated' after a new version
+     activates (i.e., VERSION was bumped and deployed).
+     ============================================================ */
+  .update-toast {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    animation: toast-in 220ms ease-out;
+  }
+  .update-toast[hidden] { display: none; }
+  .update-toast-msg { flex: 1; color: var(--text); }
+  .update-toast-reload {
+    background: var(--accent);
+    color: #0a0a0a;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .update-toast-close {
+    color: var(--text-3);
+    font-size: 16px;
+    padding: 4px 8px;
+    line-height: 1;
+  }
+  @keyframes toast-in {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
 </style>
 </head>
 <body>
 
 <div id="app"></div>
+
+<!-- Update toast: lives outside #app so the app's render() can't remove it.
+     Shown by setupUpdateToast() when the SW broadcasts a new version. -->
+<div id="updateToast" class="update-toast" hidden>
+  <span class="update-toast-msg">Доступна нова версія</span>
+  <button type="button" class="update-toast-reload">Оновити</button>
+  <button type="button" class="update-toast-close" aria-label="Закрити">✕</button>
+</div>
 
 <script>
 'use strict';
@@ -1298,7 +1354,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.11.2';
+const APP_VERSION = '1.18.0';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -1561,7 +1617,7 @@ function importJsonBackup(file) {
   // Legacy path — supports backups exported before ZIP format.
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const parsed = JSON.parse(e.target.result);
         const newData = parsed.data || parsed;
@@ -1572,12 +1628,33 @@ function importJsonBackup(file) {
         state.data = migrate(newData);
         saveData();
         applyTheme();
-        // Legacy backups don't carry attachments — but they also shouldn't
-        // wipe existing ones implicitly. Leave attDB and the index untouched.
+
+        // Sweep orphan attachments. Legacy JSON backups don't carry attachment
+        // bytes, but the restored transaction set may not include the ids the
+        // existing IDB blobs are bound to. Anything pointing to a tx that no
+        // longer exists is now dead weight — drop it to avoid slow rot.
+        let orphansRemoved = 0;
+        try {
+          const validTxIds = new Set(state.data.transactions.map(t => t.id));
+          const allAtts = await attDB.getAll();
+          for (const a of allAtts) {
+            if (a.transactionId && !validTxIds.has(a.transactionId)) {
+              await attDB.remove(a.id);
+              orphansRemoved++;
+            }
+          }
+          await loadAttachmentsIndex();  // rebuild 📎 badge index
+        } catch (sweepErr) {
+          console.warn('Orphan attachment sweep failed', sweepErr);
+        }
+
         state.view = 'transactions';
         state.subView = null;
         state.modal = 'infoRestored';
-        state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій. (Старий JSON-бекап — без вкладень.)`;
+        const orphanMsg = orphansRemoved > 0
+          ? ` Прибрано ${orphansRemoved} вкладень без транзакцій.`
+          : '';
+        state.modalCtx = `Відновлено: ${state.data.accounts.length} рахунків, ${state.data.transactions.length} транзакцій, ${state.data.categories.length} категорій. (Старий JSON-бекап — без вкладень.)${orphanMsg}`;
         vibrate([10, 40, 30]);
         render();
         resolve();
@@ -1614,7 +1691,7 @@ function exportCsv() {
   };
 
   // Transactions
-  const txHeader = ['date', 'type', 'amount', 'currency', 'account', 'category', 'event', 'to_account', 'to_amount', 'to_currency', 'note'];
+  const txHeader = ['date', 'type', 'amount', 'currency', 'account', 'category', 'event', 'to_account', 'to_amount', 'to_currency', 'note', 'scheduled'];
   const txRows = state.data.transactions
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -1634,7 +1711,8 @@ function exportCsv() {
         toAcc ? toAcc.name : '',
         t.toAmount != null ? t.toAmount : '',
         t.toCurrency || '',
-        t.note || ''
+        t.note || '',
+        isScheduled(t) ? 'yes' : ''
       ].map(cell).join(sep);
     });
   const txCsv = [txHeader.join(sep), ...txRows].join('\n');
@@ -1998,13 +2076,48 @@ function setupManifest() {
 }
 
 function setupServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(err => {
-        console.warn('SW register failed:', err);
-      });
+  if (!('serviceWorker' in navigator)) return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.warn('SW register failed:', err);
     });
-  }
+  });
+
+  // The SW broadcasts 'sw-updated' from its activate handler whenever a new
+  // version (VERSION bump) replaces an existing cache. That signal drives the
+  // "new version available" toast — see setupUpdateToast() below.
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'sw-updated') {
+      showUpdateToast();
+    }
+  });
+}
+
+// Toast lives outside #app, so render() can't remove it. We bind its click
+// handlers once on startup; show/hide is just the `hidden` attribute.
+function setupUpdateToast() {
+  const toast = document.getElementById('updateToast');
+  if (!toast) return;
+  const reloadBtn = toast.querySelector('.update-toast-reload');
+  const closeBtn = toast.querySelector('.update-toast-close');
+  if (reloadBtn) reloadBtn.addEventListener('click', () => {
+    // Full reload — picks up the freshly-cached HTML from the new SW.
+    window.location.reload();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', () => {
+    hideUpdateToast();
+  });
+}
+
+function showUpdateToast() {
+  const toast = document.getElementById('updateToast');
+  if (toast) toast.hidden = false;
+}
+
+function hideUpdateToast() {
+  const toast = document.getElementById('updateToast');
+  if (toast) toast.hidden = true;
 }
 
 function applyTheme() {
@@ -2780,7 +2893,9 @@ function render() {
 
 function renderHeader() {
   const cm = todayISO().slice(0, 7);
-  const monthTx = state.data.transactions.filter(t => monthKey(t.date) === cm);
+  // Exclude scheduled — these are pending intents, not real money movements.
+  // Same rule as in renderAccountDetail's monthly stats.
+  const monthTx = state.data.transactions.filter(t => !isScheduled(t) && monthKey(t.date) === cm);
   // Aggregate income/expense per currency
   const byCur = {};
   for (const t of monthTx) {
@@ -2883,8 +2998,12 @@ function renderTransactions() {
     return b.createdAt.localeCompare(a.createdAt);
   });
 
+  // Backup reminder sits above everything else on this view.
+  // It self-hides if there's nothing worth backing up, or if recently dismissed.
+  const reminder = renderBackupReminder();
+
   if (all.length === 0) {
-    return `
+    return reminder + `
       <div class="empty">
         <div class="title">Порожньо</div>
         <div class="hint">${state.data.accounts.length === 0
@@ -2893,7 +3012,7 @@ function renderTransactions() {
       </div>`;
   }
 
-  let html = '';
+  let html = reminder;
 
   // 1. DUE — needs confirmation
   if (due.length > 0) {
@@ -3340,13 +3459,13 @@ function renderStats() {
   // Helper: convert tx amount into viewCurrency
   const inView = (t) => convertCurrency(t.amount, t.currency || 'EUR', view);
 
-  // Monthly history (last 6 months)
+  // Monthly history (last 6 months). Exclude scheduled — they're pending intents.
   const months = [];
   const now = new Date();
   for (let i = 0; i < 6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    const mtx = allTxs.filter(t => monthKey(t.date) === key);
+    const mtx = allTxs.filter(t => !isScheduled(t) && monthKey(t.date) === key);
     const inc = mtx.filter(t => t.type === 'Income').reduce((s, t) => s + inView(t), 0);
     const exp = mtx.filter(t => t.type === 'Expense').reduce((s, t) => s + inView(t), 0);
     months.push({ key, inc, exp, net: inc - exp });
@@ -3354,10 +3473,11 @@ function renderStats() {
 
   const maxMonth = Math.max(1, ...months.map(m => Math.max(m.inc, m.exp)));
 
-  // Category breakdown (current month, expenses)
+  // Category breakdown (current month, expenses). Exclude scheduled.
   const cm = todayISO().slice(0, 7);
   const byCat = {};
   for (const t of allTxs) {
+    if (isScheduled(t)) continue;
     if (t.type !== 'Expense' || monthKey(t.date) !== cm) continue;
     const cat = findCategory(t.categoryId);
     const key = cat ? cat.name : '—';
@@ -3414,6 +3534,63 @@ function renderStats() {
     html += `</section>`;
   }
 
+  // Events breakdown — sums of expenses / incomes per event (all time, viewCurrency).
+  // Scheduled are excluded — same rule as everywhere else.
+  // We show only events that actually have transactions; archived shown last,
+  // dimmed. If no event has any tx, the whole section is hidden.
+  const eventStats = {};
+  for (const t of allTxs) {
+    if (isScheduled(t)) continue;
+    if (!t.eventId) continue;
+    if (t.type !== 'Income' && t.type !== 'Expense') continue;  // skip Transfers/Opening
+    if (!eventStats[t.eventId]) eventStats[t.eventId] = { inc: 0, exp: 0, count: 0 };
+    const s = eventStats[t.eventId];
+    if (t.type === 'Income') s.inc += inView(t);
+    else s.exp += inView(t);
+    s.count++;
+  }
+  const evList = state.data.events
+    .filter(ev => eventStats[ev.id])
+    .map(ev => ({ ev, ...eventStats[ev.id], net: eventStats[ev.id].inc - eventStats[ev.id].exp }))
+    .sort((a, b) => {
+      // Active first, then by total absolute activity (inc+exp) descending
+      if (a.ev.archived !== b.ev.archived) return a.ev.archived ? 1 : -1;
+      return (b.inc + b.exp) - (a.inc + a.exp);
+    });
+
+  if (evList.length > 0) {
+    html += `
+      <section>
+        <div class="section-head">По подіях · усе в ${view}</div>
+    `;
+    for (const e of evList) {
+      const dim = e.ev.archived ? 'opacity: 0.55;' : '';
+      // Show net only if both sides exist; otherwise just the dominant side
+      const hasInc = e.inc > 0, hasExp = e.exp > 0;
+      let valHtml;
+      if (hasInc && hasExp) {
+        valHtml = `<span style="color: var(--expense)">−${fmtMoney(e.exp, false, view).replace('−','').replace('+','')}</span>
+                   <span style="color: var(--text-3); margin: 0 4px;">/</span>
+                   <span style="color: var(--income)">+${fmtMoney(e.inc, false, view).replace('−','').replace('+','')}</span>`;
+      } else if (hasExp) {
+        valHtml = `<span style="color: var(--expense)">−${fmtMoney(e.exp, false, view).replace('−','').replace('+','')}</span>`;
+      } else {
+        valHtml = `<span style="color: var(--income)">+${fmtMoney(e.inc, false, view).replace('−','').replace('+','')}</span>`;
+      }
+      html += `
+        <div class="stat-line" style="${dim}">
+          <span class="lbl">
+            <span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${e.ev.color};margin-right:8px;vertical-align:middle"></span>
+            ${escapeHtml(e.ev.name)}${e.ev.archived ? ' <span style="color: var(--text-3); font-size: 10px;">(архів)</span>' : ''}
+            <span style="color: var(--text-3); font-size: 11px; margin-left: 6px;">· ${e.count} тр.</span>
+          </span>
+          <span class="val num">${valHtml}</span>
+        </div>
+      `;
+    }
+    html += `</section>`;
+  }
+
   // Account balances at-a-glance
   const accs = state.data.accounts.filter(a => !a.archived);
   if (accs.length > 0) {
@@ -3438,16 +3615,18 @@ function renderStats() {
 function renderSettings() {
   return `
     <div class="view-title serif">Налаштування</div>
-    <div class="view-sub">Категорії, курси, бекап</div>
+    <div class="view-sub">Категорії, події, курси, бекап</div>
 
-    <div class="stab-bar stab-bar-4">
+    <div class="stab-bar stab-bar-5">
       <button class="${state.settingsTab === 'categories' ? 'active' : ''}" data-action="stab" data-key="categories">Категорії</button>
+      <button class="${state.settingsTab === 'events' ? 'active' : ''}" data-action="stab" data-key="events">Події</button>
       <button class="${state.settingsTab === 'rates' ? 'active' : ''}" data-action="stab" data-key="rates">Курси</button>
       <button class="${state.settingsTab === 'backup' ? 'active' : ''}" data-action="stab" data-key="backup">Бекап</button>
       <button class="${state.settingsTab === 'about' ? 'active' : ''}" data-action="stab" data-key="about">Про</button>
     </div>
 
     ${state.settingsTab === 'categories' ? renderCategoriesSettings()
+     : state.settingsTab === 'events' ? renderEventsSettings()
      : state.settingsTab === 'rates' ? renderRatesSettings()
      : state.settingsTab === 'backup' ? renderBackupSettings()
      : renderAboutSettings()}
@@ -4445,6 +4624,8 @@ function renderNewTxModal() {
             ${f.isScheduled ? '<div style="font-size:11px;color:var(--text-3);margin-top:6px;font-style:italic">Не вплине на баланс, поки не підтвердиш</div>' : ''}
           </div>
 
+          ${renderTxFormEventField(f)}
+
           <div class="field">
             <div class="field-label"><span class="lbl">Примітка</span><span class="opt">опційно</span></div>
             <input class="input" type="text" placeholder="" value="${escapeAttr(f.note || '')}" data-form="note">
@@ -4458,6 +4639,30 @@ function renderNewTxModal() {
           <button class="btn primary" data-action="save-tx" ${valid ? '' : 'disabled'}>${isEdit ? 'Оновити' : 'Зберегти'}</button>
         </div>
       </div>
+    </div>
+  `;
+}
+
+function renderTxFormEventField(f) {
+  // Show the field only when there's at least one active event to pick.
+  // Editing a tx already attached to an archived event still surfaces the
+  // field so the user can see/clear the link.
+  const active = state.data.events.filter(e => !e.archived);
+  const currentEv = f.eventId ? findEvent(f.eventId) : null;
+  if (active.length === 0 && !currentEv) return '';
+
+  // Build option list: active events, plus the current (even if archived) so
+  // it isn't silently lost on save.
+  const optionEvents = active.slice();
+  if (currentEv && currentEv.archived) optionEvents.unshift(currentEv);
+
+  return `
+    <div class="field">
+      <div class="field-label"><span class="lbl">Подія</span><span class="opt">опційно</span></div>
+      <select class="select" data-form="eventId">
+        <option value="">— без події —</option>
+        ${optionEvents.map(ev => `<option value="${ev.id}" ${f.eventId === ev.id ? 'selected' : ''}>${escapeHtml(ev.name)}${ev.archived ? ' (архів)' : ''}</option>`).join('')}
+      </select>
     </div>
   `;
 }
@@ -5916,6 +6121,7 @@ generateScheduledForRules();
 render();
 setupEvents();
 setupSwipe();
+setupUpdateToast();
 
 // Open the attachments IndexedDB and build the global index of tx ids that
 // have attachments (for the 📎 badge). Errors are non-fatal: the rest of the
