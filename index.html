@@ -1085,7 +1085,10 @@
   .scrim {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.6);
-    z-index: 10;
+    /* Must sit above .sticky-zone (z-index: 50), otherwise the page header
+       — which is pinned at top and has its own stacking context — punches
+       through the modal scrim and overlays the sheet's top. */
+    z-index: 100;
     display: flex; align-items: flex-end; justify-content: center;
     animation: scrim-in 0.18s ease-out;
   }
