@@ -13,7 +13,7 @@
 //          on the client side by comparing APP_VERSION against the last seen
 //          version stored in localStorage — see checkVersionUpdate() there.
 
-const VERSION = '1.23.0';
+const VERSION = '1.31.1';
 const CACHE = 'finance-' + VERSION;
 
 // Pre-cache the app shell on install.

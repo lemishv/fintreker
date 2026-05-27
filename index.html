@@ -99,38 +99,139 @@
 
   /* HEADER */
   header.app-head {
-    padding: 22px 20px 18px;
-    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 18px;
+    /* No border-bottom: the border lives on .sticky-zone (or .tx-filter-bar
+       when chips are present), so we get a single clean line below the
+       sticky group, not two stacked ones. */
   }
-  header.app-head .top {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  header.app-head h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 28px;
-    letter-spacing: -0.02em;
-  }
-  header.app-head .month {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--text-3);
-  }
-  header.app-head .summary {
+
+  /* Summary row: three columns (Income / Expense / Net) with their cells.
+     Reused in two contexts: the main transactions header (header.app-head)
+     and the in-account period block (.acc-period-head). The selectors are
+     intentionally not scoped, so adding a third reuse later is free. */
+  .summary {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 4px;
   }
-  header.app-head .cell .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 4px; }
-  header.app-head .cell .val { font-family: 'Fraunces', serif; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 500; }
-  header.app-head .head-hint {
+  .cell .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-3); margin-bottom: 4px; }
+  .cell .val { font-family: 'Fraunces', serif; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .head-hint {
     margin-top: 10px;
     font-size: 10px;
     color: var(--text-3);
     text-align: right;
     font-style: italic;
+  }
+
+  /* PERIOD SELECTOR — at the top of the header. Subtle styling
+     (vs. the accent of the type-filter below) because it's a "set scope"
+     control, used less often than the type filter. */
+  .period-bar {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    padding: 3px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .period-bar button {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .period-bar button.active { background: var(--bg); color: var(--text); }
+
+  /* PERIOD NAVIGATOR — the ‹ Травень 2026 › row that lets the user step
+     through past months/years. Shown only when period is bounded. */
+  .period-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .period-nav button {
+    width: 32px;
+    height: 28px;
+    background: var(--surface);
+    border-radius: 6px;
+    color: var(--text-2);
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .period-nav button:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+  .period-nav-label {
+    font-size: 13px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: capitalize;
+    min-width: 130px;
+    text-align: center;
+  }
+
+  /* STICKY ZONE — wraps the header (summary + period controls) and, on the
+     transactions view, the type-filter chips below it. The whole bundle is
+     pinned to the top of the viewport (position: sticky). A scroll handler
+     translates it vertically so the *header part* slides off as the user
+     scrolls down, and reappears proportionally as soon as they scroll up.
+     The chips, sitting at the bottom of the zone, remain visible because
+     we clamp the translate at -headerHeight (not at -zoneHeight), so the
+     chips ride up to top:0 and stay anchored there. */
+  .sticky-zone {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    transform: translate3d(0, 0, 0);  /* updated by JS scroll handler */
+    will-change: transform;
+  }
+
+  /* TYPE FILTER CHIPS — pinned at the bottom of .sticky-zone, so when the
+     header slides up out of view the chips end up flush against the top of
+     the viewport. (The sticky/transform mechanics live on the parent zone,
+     not here — see .sticky-zone above.) */
+  .tx-filter-bar {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px;
+    background: var(--bg);
+  }
+  /* When the chip bar is embedded inside main (account detail), main already
+     provides 20px horizontal padding, so we strip the bar's own side padding
+     to avoid double-padding. Top padding goes to 0 too — the surrounding
+     blocks (e.g., scheduled cards) bring their own bottom margin. */
+  .tx-filter-bar.acc-embedded {
+    padding: 0 0 12px 0;
+  }
+  .tx-filter-bar button {
+    flex: 1;
+    padding: 8px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    background: var(--surface);
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tx-filter-bar button.active {
+    background: var(--accent);
+    color: #0a0a0a;
   }
 
   /* VIEW MAIN */
@@ -553,6 +654,22 @@
   }
 
   /* ACC STATS (in account detail) */
+  .acc-period-head {
+    /* Wraps the period bar + period nav + summary inside the account detail
+       view. Mirrors the structure of the main transactions header, but as a
+       plain block (not sticky, not auto-hiding). Bottom margin separates it
+       from the "Заплановано / Баланс після" cards (or the transactions list
+       when no scheduled transactions exist). */
+    margin-bottom: 22px;
+  }
+  .acc-period-head .period-bar {
+    /* Override default 12px bottom margin only when there's no period nav
+       below — handled via :last-child selector below. */
+    margin-bottom: 12px;
+  }
+  .acc-period-head .period-bar:last-child {
+    margin-bottom: 14px;
+  }
   .acc-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1329,7 +1446,7 @@
    CONSTANTS
    ============================================================ */
 
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.31.1';
 const STORAGE_KEY = 'finance-tracker-v1';
 
 const COLOR_PALETTE = [
@@ -2034,6 +2151,60 @@ function setupSwipe() {
   }, { passive: true });
 }
 
+/* ============================================================
+   AUTO-HIDE HEADER on scroll
+   ============================================================
+   The header (summary + period controls) sits in .sticky-zone alongside
+   the type-filter chips. By default the whole zone is pinned to the top
+   of the viewport. We translate it vertically in lockstep with the user's
+   scroll: scrolling down by N px translates the zone up by N px (clamped
+   at -headerHeight); scrolling up by N px translates it back down by N px
+   (clamped at 0). The chips, anchored at the bottom of the zone, ride along
+   — when the header is fully off-screen they end up flush against top:0,
+   so they stay reachable. 1:1 speed sync was deliberate; if a damped /
+   easing-style reveal is wanted later, this is the single function to tweak. */
+
+// Persisted across renders so the offset survives state changes that re-run
+// render() (e.g., opening a modal, toggling settings).
+let headerScrollOffset = 0;   // 0 = fully visible; negative = pushed up
+let lastScrollY = 0;
+
+function applyHeaderScrollOffset() {
+  const zone = document.querySelector('.sticky-zone');
+  if (!zone) return;
+  // If the page is at the very top, force-show the header. This catches the
+  // tx-filter / tx-period code paths that call scrollTo(0,0) without firing
+  // a scroll event when we're already at y=0.
+  if ((window.scrollY || 0) <= 0) {
+    headerScrollOffset = 0;
+    lastScrollY = 0;
+  }
+  zone.style.transform = `translate3d(0, ${headerScrollOffset}px, 0)`;
+}
+
+function setupAutoHideHeader() {
+  window.addEventListener('scroll', () => {
+    const zone = document.querySelector('.sticky-zone');
+    if (!zone) return;
+    const header = zone.querySelector('header.app-head');
+    if (!header) return;
+    // Clamp to the header's own height — not the whole zone — so the chips
+    // (the rest of the zone) remain visible when the header is fully hidden.
+    const headerH = header.offsetHeight;
+
+    const y = Math.max(0, window.scrollY || 0);
+    const dy = y - lastScrollY;
+    lastScrollY = y;
+
+    if (y <= 0) {
+      headerScrollOffset = 0;
+    } else {
+      headerScrollOffset = Math.max(-headerH, Math.min(0, headerScrollOffset - dy));
+    }
+    zone.style.transform = `translate3d(0, ${headerScrollOffset}px, 0)`;
+  }, { passive: true });
+}
+
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
@@ -2187,6 +2358,23 @@ const state = {
   view: 'transactions',    // transactions | accounts | stats | settings
   subView: null,           // null | { type: 'accountDetail', id: '...' }
   settingsTab: 'categories',
+  txFilter: 'all',         // all | expense | income | transfer — controls the chip filter on the transactions list
+  txPeriod: 'month',       // all | year | month — controls the period window for header totals and tx list
+  txPeriodMonth: null,     // YYYY-MM anchor for "month" mode (lazily init to current month on first read)
+  txPeriodYear: null,      // YYYY anchor for "year" mode
+  // Account-detail period scope — deliberately separate from the main-list
+  // period so toggling "Рік" inside an account doesn't mutate the global view
+  // a user just left. Affects only the summary block at the top of the detail;
+  // the list of transactions below stays unfiltered (it's the full history
+  // of the account, sorted by date).
+  accDetailPeriod: 'month',
+  accDetailPeriodMonth: null,
+  accDetailPeriodYear: null,
+  // Account-detail type filter (chip bar above the regular transactions list).
+  // Same shape and semantics as txFilter on the main list, but scoped to this
+  // view only. Does NOT affect due/upcoming sections (action items / pending
+  // intents) or the summary block (always shows all three totals).
+  accDetailFilter: 'all',
   modal: null,             // null | newTx | newAcc | newCat | txDetail | confirmDelTx | confirmDelAcc | confirmDelCat | infoBlocked
   modalCtx: null,          // arbitrary data for modal
   modalForm: {},           // current values in the open modal
@@ -2216,6 +2404,82 @@ function todayISO() {
 
 function monthKey(dateStr) {
   return dateStr.slice(0, 7);
+}
+
+// Check whether a transaction date falls within the currently selected period.
+// The period itself is global state, with two anchors: txPeriodMonth (YYYY-MM)
+// for the "month" view and txPeriodYear (YYYY) for the "year" view. Both
+// default to "now" if unset. The user can navigate to any past/future window
+// via the ‹ › buttons in the header.
+function inPeriod(dateStr, period) {
+  if (period === 'all' || !period) return true;
+  if (!dateStr) return false;
+  if (period === 'year') {
+    const y = state.txPeriodYear || todayISO().slice(0, 4);
+    return dateStr.slice(0, 4) === y;
+  }
+  if (period === 'month') {
+    const ym = state.txPeriodMonth || todayISO().slice(0, 7);
+    return dateStr.slice(0, 7) === ym;
+  }
+  return true;
+}
+
+// Step the active period anchor by ±1 unit (month or year). The "next" step
+// is clamped: we don't let the user navigate into the future, since there's
+// no data there and it would be confusing.
+function stepPeriodAnchor(direction) {
+  const now = todayISO();
+  if (state.txPeriod === 'month') {
+    const cur = state.txPeriodMonth || now.slice(0, 7);
+    const [y, m] = cur.split('-').map(Number);
+    const d = new Date(y, m - 1 + direction, 1);
+    const newKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (direction > 0 && newKey > now.slice(0, 7)) return; // clamp to current
+    state.txPeriodMonth = newKey;
+  } else if (state.txPeriod === 'year') {
+    const cur = parseInt(state.txPeriodYear || now.slice(0, 4), 10);
+    const newYear = String(cur + direction);
+    if (direction > 0 && newYear > now.slice(0, 4)) return;
+    state.txPeriodYear = newYear;
+  }
+}
+
+// Account-detail equivalents of inPeriod() and stepPeriodAnchor(). Kept
+// separate (rather than parameterising the originals) because (a) the scope
+// is shallow — two short functions — and (b) duplicating the bodies keeps
+// each call site reading naturally. If a third period scope ever appears,
+// this is the moment to refactor.
+function inAccPeriod(dateStr) {
+  const period = state.accDetailPeriod || 'month';
+  if (period === 'all') return true;
+  if (!dateStr) return false;
+  if (period === 'year') {
+    const y = state.accDetailPeriodYear || todayISO().slice(0, 4);
+    return dateStr.slice(0, 4) === y;
+  }
+  if (period === 'month') {
+    const ym = state.accDetailPeriodMonth || todayISO().slice(0, 7);
+    return dateStr.slice(0, 7) === ym;
+  }
+  return true;
+}
+
+function stepAccPeriodAnchor(direction) {
+  const now = todayISO();
+  if (state.accDetailPeriod === 'month') {
+    const cur = state.accDetailPeriodMonth || now.slice(0, 7);
+    const [y, m] = cur.split('-').map(Number);
+    const d = new Date(y, m - 1 + direction, 1);
+    const newKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (direction > 0 && newKey > now.slice(0, 7)) return;
+    state.accDetailPeriodMonth = newKey;
+  } else if (state.accDetailPeriod === 'year') {
+    const cur = parseInt(state.accDetailPeriodYear || now.slice(0, 4), 10);
+    const newYear = String(cur + direction);
+    if (direction > 0 && newYear > now.slice(0, 4)) return;
+    state.accDetailPeriodYear = newYear;
+  }
 }
 
 function fmtMoney(n, signed = false, currency = 'EUR') {
@@ -2812,23 +3076,45 @@ function toggleRulePause(id) {
 
 function render() {
   const app = document.getElementById('app');
+  // The summary header (period selector + income/expense/net totals) and the
+  // type-filter chips below it are bundled in a single sticky container, but
+  // only on the transactions list — that's the only view where these controls
+  // are actually relevant. Other views (accounts, stats, settings) have their
+  // own dedicated controls and headings, so the summary would just duplicate
+  // and crowd them out.
+  //
+  // A scroll handler translates the zone vertically: the header slides off
+  // when scrolling down and slides back proportionally on scroll up. The chips
+  // remain visible because the translate is clamped at -headerHeight (see
+  // setupAutoHideHeader).
+  const showStickyZone = state.view === 'transactions' && !state.subView;
+  const stickyZoneHtml = showStickyZone
+    ? `<div class="sticky-zone">${renderHeader()}${renderTxFilterBar()}</div>`
+    : '';
   app.innerHTML = `
-    ${renderHeader()}
+    ${stickyZoneHtml}
     <main>${renderView()}</main>
     ${renderFab()}
     ${renderNav()}
     ${state.modal ? renderModal() : ''}
   `;
+  // Re-apply the saved auto-hide offset to the freshly rendered sticky-zone
+  // so the header doesn't snap back to fully-visible on every state change.
+  // If the page is scrolled to the top (typical after tx-filter / tx-period
+  // changes that call scrollTo(0,0)), we reset to 0 — at the top the header
+  // should always be visible.
+  applyHeaderScrollOffset();
 }
 
 function renderHeader() {
-  const cm = todayISO().slice(0, 7);
-  // Exclude scheduled — these are pending intents, not real money movements.
-  // Same rule as in renderAccountDetail's monthly stats.
-  const monthTx = state.data.transactions.filter(t => !isScheduled(t) && monthKey(t.date) === cm);
-  // Aggregate income/expense per currency
+  const now = todayISO();
+  const period = state.txPeriod || 'month';
+
+  // Aggregate income/expense per currency, filtered by selected period.
+  // Scheduled excluded — these are pending intents, not real money movements.
+  const periodTx = state.data.transactions.filter(t => !isScheduled(t) && inPeriod(t.date, period));
   const byCur = {};
-  for (const t of monthTx) {
+  for (const t of periodTx) {
     if (t.type !== 'Income' && t.type !== 'Expense') continue;
     const cur = t.currency || 'EUR';
     if (!byCur[cur]) byCur[cur] = { inc: 0, exp: 0 };
@@ -2843,12 +3129,38 @@ function renderHeader() {
   const net = data.inc - data.exp;
   const others = currencies.filter(c => c !== primary);
 
+  // Build the period navigator (the ‹ Травень 2026 › row). Shown only when a
+  // bounded period is active — there's nothing to navigate when scope is "Усе".
+  let navHtml = '';
+  if (period !== 'all') {
+    let label, atNow;
+    if (period === 'month') {
+      const ym = state.txPeriodMonth || now.slice(0, 7);
+      const monthName = MONTHS_FULL[parseInt(ym.slice(5), 10) - 1];
+      label = monthName + ' ' + ym.slice(0, 4);
+      atNow = ym === now.slice(0, 7);
+    } else {
+      const y = state.txPeriodYear || now.slice(0, 4);
+      label = y;
+      atNow = y === now.slice(0, 4);
+    }
+    navHtml = `
+      <div class="period-nav">
+        <button data-action="tx-period-prev" aria-label="Назад">‹</button>
+        <span class="period-nav-label">${escapeHtml(label)}</span>
+        <button data-action="tx-period-next" aria-label="Вперед" ${atNow ? 'disabled' : ''}>›</button>
+      </div>
+    `;
+  }
+
   return `
     <header class="app-head">
-      <div class="top">
-        <h1>Фінанси</h1>
-        <span class="month">${fmtMonthLabel(cm)}</span>
+      <div class="period-bar">
+        <button data-action="tx-period" data-key="all"   class="${period==='all'?'active':''}">Усе</button>
+        <button data-action="tx-period" data-key="year"  class="${period==='year'?'active':''}">Рік</button>
+        <button data-action="tx-period" data-key="month" class="${period==='month'?'active':''}">Місяць</button>
       </div>
+      ${navHtml}
       <div class="summary">
         <div class="cell">
           <div class="lbl">Доход</div>
@@ -2911,14 +3223,46 @@ function renderBackupReminder() {
   `;
 }
 
+// Type filter chips for the transactions list. Rendered as part of the sticky
+// header bundle (see render()), not inside renderTransactions, so they stay
+// pinned to the top with the header.
+function renderTxFilterBar() {
+  const f = state.txFilter || 'all';
+  // Hide chips entirely on a fresh install — they'd be confusing decoration
+  // when there's literally nothing to filter.
+  if (state.data.transactions.length === 0) return '';
+  return `
+    <div class="tx-filter-bar">
+      <button data-action="tx-filter" data-key="all"      class="${f==='all'?'active':''}">Усе</button>
+      <button data-action="tx-filter" data-key="expense"  class="${f==='expense'?'active':''}">Витрати</button>
+      <button data-action="tx-filter" data-key="income"   class="${f==='income'?'active':''}">Доходи</button>
+      <button data-action="tx-filter" data-key="transfer" class="${f==='transfer'?'active':''}">Перекази</button>
+    </div>
+  `;
+}
+
 function renderTransactions() {
   const today = todayISO();
   const all = state.data.transactions;
+  const period = state.txPeriod || 'month';
 
   // Split into three groups
   const due = all.filter(t => isScheduled(t) && t.scheduledFor <= today);
   const upcoming = all.filter(t => isScheduled(t) && t.scheduledFor > today);
-  const regular = all.filter(t => !isScheduled(t));
+  let regular = all.filter(t => !isScheduled(t));
+
+  // Apply period window first — it scopes the visible "browse history" to the
+  // time range chosen in the header. Due/upcoming are kept unconditional
+  // because they're action items, not history.
+  regular = regular.filter(t => inPeriod(t.date, period));
+
+  // Apply type filter from the chip bar. We deliberately filter only the
+  // "regular" stream — due and upcoming sections show ALL pending items
+  // regardless of filter, because they're action items, not browse-history.
+  const f = state.txFilter || 'all';
+  if (f === 'expense')       regular = regular.filter(t => t.type === 'Expense');
+  else if (f === 'income')   regular = regular.filter(t => t.type === 'Income');
+  else if (f === 'transfer') regular = regular.filter(t => t.type === 'Transfer');
 
   // Sort
   due.sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));  // oldest first (most overdue at top)
@@ -2928,7 +3272,7 @@ function renderTransactions() {
     return b.createdAt.localeCompare(a.createdAt);
   });
 
-  // Backup reminder sits above everything else on this view.
+  // Backup reminder sits above everything else inside main.
   // It self-hides if there's nothing worth backing up, or if recently dismissed.
   const reminder = renderBackupReminder();
 
@@ -2981,6 +3325,24 @@ function renderTransactions() {
         `;
       }
     }
+  } else if ((f !== 'all' || period !== 'all') && due.length === 0 && upcoming.length === 0) {
+    // Some narrowing is active but nothing matched. Compose a clear message
+    // that names both axes of filtering, using the active anchor (not "today")
+    // so the message matches what the navigator above actually shows.
+    const typeLabels = { all: 'транзакцій', expense: 'витрат', income: 'доходів', transfer: 'переказів' };
+    let periodSuffix = '';
+    if (period === 'year') {
+      periodSuffix = ` за ${state.txPeriodYear || todayISO().slice(0,4)} рік`;
+    } else if (period === 'month') {
+      const ym = state.txPeriodMonth || todayISO().slice(0,7);
+      const mName = MONTHS_FULL[parseInt(ym.slice(5,7), 10) - 1].toLowerCase();
+      periodSuffix = ` за ${mName} ${ym.slice(0,4)}`;
+    }
+    html += `
+      <div class="empty">
+        <div class="hint" style="margin-top: 30px;">Жодних ${typeLabels[f]}${periodSuffix}</div>
+      </div>
+    `;
   }
 
   // 3. UPCOMING — future scheduled
@@ -3186,46 +3548,30 @@ function renderAccountDetail() {
 
   const bal = getAccountBalance(acc.id);
 
-  // Current month income/expense totals for this account (in account's own currency).
-  // Ignores scheduled transactions (they have scheduledFor set).
-  const cm = todayISO().slice(0, 7);
-  let monthInc = 0, monthExp = 0;
+  // Income/expense totals for this account within the selected period
+  // (state.accDetailPeriod — all/year/month, anchored by accDetailPeriodMonth
+  // or accDetailPeriodYear). Scheduled transactions are excluded; they're
+  // pending intents, not movements, and have their own block below.
+  let periodInc = 0, periodExp = 0;
   for (const t of state.data.transactions) {
     if (isScheduled(t)) continue;
-    if (monthKey(t.date) !== cm) continue;
+    if (!inAccPeriod(t.date)) continue;
     // Money coming INTO this account
     if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
-      monthInc += t.amount;
+      periodInc += t.amount;
     }
     if (t.type === 'Transfer' && t.toAccountId === acc.id) {
-      monthInc += (t.toAmount != null ? t.toAmount : t.amount);
+      periodInc += (t.toAmount != null ? t.toAmount : t.amount);
     }
     // Money going OUT of this account
     if (t.accountId === acc.id && t.type === 'Expense') {
-      monthExp += t.amount;
+      periodExp += t.amount;
     }
     if (t.type === 'Transfer' && t.accountId === acc.id) {
-      monthExp += t.amount;
+      periodExp += t.amount;
     }
   }
-
-  // All-time income/expense totals for this account (also ignoring scheduled)
-  let totalInc = 0, totalExp = 0;
-  for (const t of state.data.transactions) {
-    if (isScheduled(t)) continue;
-    if (t.accountId === acc.id && (t.type === 'Income' || t.type === 'Opening')) {
-      totalInc += t.amount;
-    }
-    if (t.type === 'Transfer' && t.toAccountId === acc.id) {
-      totalInc += (t.toAmount != null ? t.toAmount : t.amount);
-    }
-    if (t.accountId === acc.id && t.type === 'Expense') {
-      totalExp += t.amount;
-    }
-    if (t.type === 'Transfer' && t.accountId === acc.id) {
-      totalExp += t.amount;
-    }
-  }
+  const periodNet = periodInc - periodExp;
 
   // Scheduled (pending) totals — what's coming in/out if everything gets confirmed
   let schedInc = 0, schedExp = 0;
@@ -3248,6 +3594,32 @@ function renderAccountDetail() {
   // Projected balance = current balance + scheduled income - scheduled expense
   const projected = bal + schedInc - schedExp;
 
+  // Build the period nav (‹ Травень 2026 ›) shown when period is bounded.
+  // Same shape and ARIA wiring as the main transactions header, but with
+  // separate data-actions so the click handler doesn't confuse the scopes.
+  const accPeriod = state.accDetailPeriod || 'month';
+  let accNavHtml = '';
+  if (accPeriod !== 'all') {
+    let label, atNow;
+    const now = todayISO();
+    if (accPeriod === 'month') {
+      const ym = state.accDetailPeriodMonth || now.slice(0, 7);
+      label = MONTHS_FULL[parseInt(ym.slice(5), 10) - 1] + ' ' + ym.slice(0, 4);
+      atNow = ym === now.slice(0, 7);
+    } else {
+      const y = state.accDetailPeriodYear || now.slice(0, 4);
+      label = y;
+      atNow = y === now.slice(0, 4);
+    }
+    accNavHtml = `
+      <div class="period-nav">
+        <button data-action="acc-period-prev" aria-label="Назад">‹</button>
+        <span class="period-nav-label">${escapeHtml(label)}</span>
+        <button data-action="acc-period-next" aria-label="Вперед" ${atNow ? 'disabled' : ''}>›</button>
+      </div>
+    `;
+  }
+
   let html = `
     <div class="detail-head">
       <button class="back" data-action="back-to-accounts">‹ Назад</button>
@@ -3268,27 +3640,25 @@ function renderAccountDetail() {
       <div class="detail-cur">${acc.currency}</div>
     </div>
 
-    <div class="acc-stats">
-      <div class="acc-stats-block">
-        <div class="acc-stats-head">${fmtMonthLabel(cm)}</div>
-        <div class="acc-stats-row">
-          <span class="lbl">Надходження</span>
-          <span class="val num" style="color: var(--income)">+${fmtMoney(monthInc, false, acc.currency).replace('−','').replace('+','')}</span>
-        </div>
-        <div class="acc-stats-row">
-          <span class="lbl">Витрати</span>
-          <span class="val num" style="color: var(--expense)">−${fmtMoney(monthExp, false, acc.currency).replace('−','').replace('+','')}</span>
-        </div>
+    <div class="acc-period-head">
+      <div class="period-bar">
+        <button data-action="acc-period" data-key="all"   class="${accPeriod==='all'?'active':''}">Усе</button>
+        <button data-action="acc-period" data-key="year"  class="${accPeriod==='year'?'active':''}">Рік</button>
+        <button data-action="acc-period" data-key="month" class="${accPeriod==='month'?'active':''}">Місяць</button>
       </div>
-      <div class="acc-stats-block">
-        <div class="acc-stats-head">За весь час</div>
-        <div class="acc-stats-row">
-          <span class="lbl">Надходження</span>
-          <span class="val num" style="color: var(--income)">+${fmtMoney(totalInc, false, acc.currency).replace('−','').replace('+','')}</span>
+      ${accNavHtml}
+      <div class="summary">
+        <div class="cell">
+          <div class="lbl">Доход</div>
+          <div class="val" style="color: var(--income)">${fmtMoney(periodInc, false, acc.currency)}</div>
         </div>
-        <div class="acc-stats-row">
-          <span class="lbl">Витрати</span>
-          <span class="val num" style="color: var(--expense)">−${fmtMoney(totalExp, false, acc.currency).replace('−','').replace('+','')}</span>
+        <div class="cell">
+          <div class="lbl">Витрати</div>
+          <div class="val" style="color: var(--expense)">${fmtMoney(periodExp, false, acc.currency)}</div>
+        </div>
+        <div class="cell">
+          <div class="lbl">Net</div>
+          <div class="val" style="color: ${periodNet >= 0 ? 'var(--income)' : 'var(--expense)'}">${fmtMoney(periodNet, true, acc.currency)}</div>
         </div>
       </div>
     </div>
@@ -3328,12 +3698,48 @@ function renderAccountDetail() {
     html += `</section>`;
   }
 
+  // Period + type filters for the regular list. Applied only here —
+  // due/upcoming sections show all (they're action items and forward-looking
+  // blocks; hiding them based on the user's current period/type lens would
+  // bury actionable info). The summary block at the top already filters by
+  // period via inAccPeriod() in its own pass.
+  const accFilter = state.accDetailFilter || 'all';
+  let accRegularFiltered = accRegular.filter(t => inAccPeriod(t.date));
+  if (accFilter === 'expense')       accRegularFiltered = accRegularFiltered.filter(t => t.type === 'Expense');
+  else if (accFilter === 'income')   accRegularFiltered = accRegularFiltered.filter(t => t.type === 'Income');
+  else if (accFilter === 'transfer') accRegularFiltered = accRegularFiltered.filter(t => t.type === 'Transfer');
+
+  // Show chips only when there's at least one regular tx to filter — otherwise
+  // the bar dangles above an empty space (or a due-only / upcoming-only
+  // account) and confuses more than it helps.
+  if (accRegular.length > 0) {
+    html += `
+      <div class="tx-filter-bar acc-embedded">
+        <button data-action="acc-filter" data-key="all"      class="${accFilter==='all'?'active':''}">Усе</button>
+        <button data-action="acc-filter" data-key="expense"  class="${accFilter==='expense'?'active':''}">Витрати</button>
+        <button data-action="acc-filter" data-key="income"   class="${accFilter==='income'?'active':''}">Доходи</button>
+        <button data-action="acc-filter" data-key="transfer" class="${accFilter==='transfer'?'active':''}">Перекази</button>
+      </div>
+    `;
+  }
+
   if (allForAcc.length === 0) {
     html += `<section><div class="section-head">Транзакції · 0</div><div class="empty"><div class="hint">Поки немає транзакцій. Тапни «+»</div></div></section>`;
-  } else if (accRegular.length > 0) {
-    html += `<section><div class="section-head">Транзакції · ${accRegular.length}</div>`;
+  } else if (accRegular.length > 0 && accRegularFiltered.length === 0) {
+    // Has regular transactions, but the active period/type filters exclude
+    // all of them. Pick a message that names the actual cause, so the user
+    // knows which control to relax.
+    const periodActive = (state.accDetailPeriod || 'month') !== 'all';
+    const typeActive = accFilter !== 'all';
+    let emptyMsg;
+    if (periodActive && typeActive)      emptyMsg = 'Немає транзакцій цього типу за цей період';
+    else if (periodActive)               emptyMsg = 'Немає транзакцій за цей період';
+    else                                 emptyMsg = 'Немає транзакцій цього типу';
+    html += `<section><div class="section-head">Транзакції · 0</div><div class="empty"><div class="hint">${emptyMsg}</div></div></section>`;
+  } else if (accRegularFiltered.length > 0) {
+    html += `<section><div class="section-head">Транзакції · ${accRegularFiltered.length}</div>`;
     const groups = {};
-    for (const t of accRegular) {
+    for (const t of accRegularFiltered) {
       if (!groups[t.date]) groups[t.date] = [];
       groups[t.date].push(t);
     }
@@ -4973,6 +5379,74 @@ function handleAction(action, key, id, trigger) {
       render();
       break;
 
+    case 'tx-filter':
+      // Switch chip filter on the transactions list. Scroll back to top so the
+      // user sees the result from the start, not somewhere mid-list with the
+      // old scroll offset.
+      state.txFilter = key;
+      vibrate(5);
+      render();
+      window.scrollTo(0, 0);
+      break;
+
+    case 'tx-period':
+      // Switch time-window for header totals and list. Like the type filter,
+      // we scroll back to top since the list content shifts substantially.
+      state.txPeriod = key;
+      vibrate(5);
+      render();
+      window.scrollTo(0, 0);
+      break;
+
+    case 'tx-period-prev':
+      stepPeriodAnchor(-1);
+      vibrate(5);
+      render();
+      window.scrollTo(0, 0);
+      break;
+
+    case 'tx-period-next':
+      stepPeriodAnchor(+1);
+      vibrate(5);
+      render();
+      window.scrollTo(0, 0);
+      break;
+
+    case 'acc-period':
+      // Switch period for the account-detail summary block only. The
+      // transactions list below isn't filtered by period — it's the full
+      // history of the account (type-filtered via acc-filter if active).
+      // No scrollTo: the list doesn't shift, so the user's current reading
+      // position is preserved.
+      state.accDetailPeriod = key;
+      vibrate(5);
+      render();
+      break;
+
+    case 'acc-period-prev':
+      stepAccPeriodAnchor(-1);
+      vibrate(5);
+      render();
+      break;
+
+    case 'acc-period-next':
+      stepAccPeriodAnchor(+1);
+      vibrate(5);
+      render();
+      break;
+
+    case 'acc-filter':
+      // Switch chip filter on the account-detail transactions list. Unlike
+      // tx-filter on the main view, we do NOT scroll to top: the chip bar
+      // is embedded mid-page (below the period summary and scheduled cards),
+      // so jumping to y=0 would actually take the user *away* from where
+      // their tap just happened. Keeping scroll position lets them see the
+      // filter effect right under their finger.
+      state.accDetailFilter = key;
+      vibrate(5);
+      render();
+      break;
+
     case 'open-new-tx':
       if (state.data.accounts.length === 0) {
         state.modal = 'infoBlocked';
@@ -5732,6 +6206,7 @@ generateScheduledForRules();
 render();
 setupEvents();
 setupSwipe();
+setupAutoHideHeader();
 setupUpdateToast();
 checkVersionUpdate();
 
