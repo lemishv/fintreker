@@ -2145,11 +2145,13 @@ function setupSwipe() {
       state.view = TAB_ORDER[idx + 1];
       vibrate(8);
       render();
+      window.scrollTo(0, 0);
     } else if (dx > 0 && idx > 0) {
       // Swipe right → previous tab
       state.view = TAB_ORDER[idx - 1];
       vibrate(8);
       render();
+      window.scrollTo(0, 0);
     }
   }, { passive: true });
 }
@@ -5300,6 +5302,10 @@ function handleAction(action, key, id, trigger) {
       state.view = key;
       state.subView = null;
       render();
+      // Reset scroll position: window.scrollY persists across renders, so
+      // without this the new tab inherits the old tab's offset and appears
+      // scrolled mid-page. Matches the pattern in tx-filter / tx-period.
+      window.scrollTo(0, 0);
       break;
 
     case 'open-acc-detail':
